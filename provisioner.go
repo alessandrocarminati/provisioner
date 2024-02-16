@@ -2,6 +2,7 @@ package main
 import (
 	"log"
 )
+
 func main() {
 
 	config, err :=  fetch_config("config.json")
