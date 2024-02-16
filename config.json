@@ -1,0 +1,9 @@
+{
+  "tftp_directory": "./files/",
+  "http_port": "8080",
+  "ssh_port": "9090",
+  "serial_config": {
+    "port": "/dev/ttyS0",
+    "baud_rate": 115200
+  }
+}
