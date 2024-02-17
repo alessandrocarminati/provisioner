@@ -8,11 +8,9 @@ import (
 	"os"
 	"net"
 	"fmt"
-
-	"github.com/tarm/serial"
 )
 
-func SSHHandler(sshPort string, sshIn chan<- []byte, sshOut <-chan []byte) {
+func SSHHandler(sshPort string, desc string, sshIn chan<- []byte, sshOut <-chan []byte) {
 	authorizedKeysBytes, err := os.ReadFile("authorized_keys")
 	if err != nil {
 		log.Fatalf("Failed to load authorized_keys, err: %v", err)
@@ -22,6 +20,7 @@ func SSHHandler(sshPort string, sshIn chan<- []byte, sshOut <-chan []byte) {
 	for len(authorizedKeysBytes) > 0 {
 		pubKey, _, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
 		if err != nil {
+			log.Println("here")
 			log.Fatal(err)
 		}
 
@@ -32,7 +31,6 @@ func SSHHandler(sshPort string, sshIn chan<- []byte, sshOut <-chan []byte) {
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			if authorizedKeysMap[string(pubKey.Marshal())] {
 				return &ssh.Permissions{
-					// Record the public key used for authentication.
 					Extensions: map[string]string{
 						"pubkey-fp": ssh.FingerprintSHA256(pubKey),
 					},
@@ -59,7 +57,7 @@ func SSHHandler(sshPort string, sshIn chan<- []byte, sshOut <-chan []byte) {
 	}
 	defer listener.Close()
 
-	log.Println("Starting SSH server on port", sshPort)
+	log.Printf("Starting %s SSH server on port %s\n", desc, sshPort)
 
 	for {
 		conn, err := listener.Accept()
@@ -136,41 +134,3 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- []byte, sshOut <-c
 
 	wg.Wait()
 }
-
-func SerialHandler(serialPort string, BaudRate int, serialIn <-chan []byte, serialOut chan<- []byte) {
-	var wg sync.WaitGroup
-	cfg := &serial.Config{Name: serialPort, Baud: BaudRate}
-	serialPortInstance, err := serial.OpenPort(cfg)
-	if err != nil {
-		log.Fatal("Error opening serial port:", err)
-	}
-	defer serialPortInstance.Close()
-
-	wg.Add(1)
-	go func() {
-		buf := make([]byte, 4096)
-		for {
-			n, err := serialPortInstance.Read(buf)
-			if err != nil {
-				log.Println("Error reading from serial port:", err)
-				return
-			}
-			serialOut <- buf[:n]
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		for {
-			data := <-serialIn
-			_, err := serialPortInstance.Write(data)
-			if err != nil {
-				log.Println("Error writing to serial port:", err)
-				return
-			}
-		}
-	}()
-	wg.Wait()
-}
-
-

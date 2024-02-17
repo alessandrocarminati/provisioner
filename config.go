@@ -6,13 +6,15 @@ import (
 )
 
 type Config struct {
-	TFTPDirectory string `json:"tftp_directory"`
-	HTTPPort      string `json:"http_port"`
-	SSHPort       string `json:"ssh_port"`
-	SerialConfig  struct {
-		Port     string `json:"port"`
-		BaudRate int    `json:"baud_rate"`
-	} `json:"serial_config"`
+	TFTPDirectory	string			`json:"tftp_directory"`
+	HTTPPort	string			`json:"http_port"`
+	SSHSerPort	string			`json:"ssh_serial_tunnel_port"`
+	SSHMonPort	string			`json:"ssh_monitor_port"`
+	SerialConfig	struct {
+		Port		string		`json:"port"`
+		BaudRate	int		`json:"baud_rate"`
+	}					`json:"serial_config"`
+        Monitor		map[string] string	`json:"monitor"`
 }
 
 func fetch_config(fn string) (Config, error) {

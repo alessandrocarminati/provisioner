@@ -1,9 +1,19 @@
 {
   "tftp_directory": "./files/",
   "http_port": "8080",
-  "ssh_port": "9090",
+  "ssh_serial_tunnel_port": "9090",
+  "ssh_monitor_port": "9091",
   "serial_config": {
     "port": "/dev/ttyS0",
     "baud_rate": 115200
+  },
+  "monitor": {
+  "snmp_pdu_ctrl_oid": "1.2.3.4.5.6.7.8.9.10",
+  "snmp_pdu_ctrl_host": "pdudevice.hqhome163.com",
+  "snmp_pdu_ctrl_user": "someuser",
+  "snmp_pdu_ctrl_on_val": "1",
+  "snmp_pdu_ctrl_off_val": "0",
+  "snmp_pdu_ctrl_on_type": "int",
+  "snmp_pdu_ctrl_off_type": "int"
   }
 }
