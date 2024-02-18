@@ -5,11 +5,17 @@ import (
 	"os"
 )
 
+type SSHCFG struct {
+                Port            string          `json:"port"`
+                IdentitFn       string          `json:"identity_fn"`
+                Authorized_keys string          `json:"authorized_keys"`
+        }
+
 type Config struct {
 	TFTPDirectory	string			`json:"tftp_directory"`
 	HTTPPort	string			`json:"http_port"`
-	SSHSerPort	string			`json:"ssh_serial_tunnel_port"`
-	SSHMonPort	string			`json:"ssh_monitor_port"`
+	SSHSerTun	SSHCFG			`json:"ssh_serial_tunnel"`
+	SSHMon		SSHCFG			`json:"ssh_monitor"`
 	SerialConfig	struct {
 		Port		string		`json:"port"`
 		BaudRate	int		`json:"baud_rate"`

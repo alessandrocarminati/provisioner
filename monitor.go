@@ -57,7 +57,74 @@ func command_init(){
 		Handler: toff,
 	}
 	commands["toff"]=m
+	m=Command{
+		Name: "ulist",
+		HelpText: "list user state for tunnel",
+		Handler: listUser,
+	}
+	commands["ulist"]=m
+	m=Command{
+		Name: "enuser",
+		HelpText: "enable user for tunnel",
+		Handler: enuser,
+	}
+	commands["enuser"]=m
+	m=Command{
+		Name: "exit",
+		HelpText: "exit this shell",
+		Handler: exit,
+	}
+	commands["exit"]=m
+	m=Command{
+		Name: "tterm",
+		HelpText: "terminate serial tunnel connection",
+		Handler: tterm,
+	}
+	commands["tterm"]=m
 }
+
+func exit(input string) string {
+	if c, ok := sshChannels["monitor"]; ok {
+		(*c).Close()
+	}
+	return "can't exit"
+}
+func tterm(input string) string {
+	out:= "can't exit"
+	if c, ok := sshChannels["tunnel"]; ok {
+		(*c).Close()
+		out="done!"
+	}
+	return out
+}
+func listUser(input string) string {
+	var out string
+
+	for _, item := range GenAuth {
+		if item.service == "tunnel" {
+			out = out + fmt.Sprintf("\t%s -> %t\n\r", item.name, item.state)
+		}
+	}
+	return out
+}
+
+func enuser(input string) string {
+	sarg := strings.Index(input, " ")
+	out:="user not found!"
+	if sarg == -1 {
+		return "Error: enuser <user>\n\rHint: user corresponds to the ssh pubkey comment."
+	}
+	for i, item := range GenAuth {
+		if item.service == "tunnel" {
+                        if item.name == input[sarg+1:] {
+				GenAuth[i].state = true
+				out="state updated"
+			}
+                }
+        }
+        return out
+}
+
 func help(input string) string{
 	out:=""
 	list := make([]string, 0, len(commands))
@@ -147,7 +214,7 @@ func Monitor(monitorIn <-chan []byte, monitorOut chan<- []byte, monConfig map[st
 	outputFlag = true
 	command_init()
 
-	log.Println(commands)
+//		log.Println(commands)
 
 	wg.Add(1)
 	go func() {

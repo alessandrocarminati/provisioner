@@ -8,39 +8,71 @@ import (
 	"os"
 	"net"
 	"fmt"
+//	"crypto/md5"
+	"encoding/hex"
 )
+type DefAuth struct {
+	service		string
+	name		string
+	token		string
+	state		bool
+}
 
-func SSHHandler(sshPort string, desc string, sshIn chan<- []byte, sshOut <-chan []byte) {
-	authorizedKeysBytes, err := os.ReadFile("authorized_keys")
+var GenAuth []DefAuth
+
+var sshChannels = make(map[string] *ssh.Channel)
+
+func checkPerm(token string, service string) bool {
+	for _, i := range GenAuth {
+		if (token == i.token) && (service == i.service) {
+			return i.state
+		}
+	}
+	return false
+}
+
+func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- []byte, sshOut <-chan []byte, def_aut bool) {
+	authorizedKeysBytes, err := os.ReadFile(sshcfg.Authorized_keys)
 	if err != nil {
 		log.Fatalf("Failed to load authorized_keys, err: %v", err)
 	}
 
 	authorizedKeysMap := map[string]bool{}
 	for len(authorizedKeysBytes) > 0 {
-		pubKey, _, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
+		pubKey, comment, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
 		if err != nil {
-			log.Println("here")
+			log.Println("Only one line per user, no extra lines")
 			log.Fatal(err)
 		}
-
+//		log.Printf("add key for %s -> %s", comment, hex.EncodeToString(pubKey.Marshal()))
+		GenAuth = append(GenAuth, DefAuth{
+			service: desc,
+			name: comment,
+			token: hex.EncodeToString(pubKey.Marshal()),
+			state: def_aut,
+		})
 		authorizedKeysMap[string(pubKey.Marshal())] = true
 		authorizedKeysBytes = rest
 	}
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			if authorizedKeysMap[string(pubKey.Marshal())] {
-				return &ssh.Permissions{
-					Extensions: map[string]string{
-						"pubkey-fp": ssh.FingerprintSHA256(pubKey),
-					},
-				}, nil
+//				log.Printf("Authorized user attempt check permissions")
+				if checkPerm(hex.EncodeToString(pubKey.Marshal()), desc) {
+					return &ssh.Permissions{
+						Extensions: map[string]string{
+							"pubkey-fp": ssh.FingerprintSHA256(pubKey),
+						},
+					}, nil
+				} else {
+				return nil, fmt.Errorf("unauthorized user")
+				}
 			}
 			return nil, fmt.Errorf("unknown public key for %q", c.User())
 		},
 	}
 
-	privateBytes, err := os.ReadFile("id_rsa")
+	privateBytes, err := os.ReadFile(sshcfg.IdentitFn)
 	if err != nil {
 		log.Fatal("Failed to load private key: ", err)
 	}
@@ -51,13 +83,13 @@ func SSHHandler(sshPort string, desc string, sshIn chan<- []byte, sshOut <-chan 
 	config.AddHostKey(private)
 
 
-	listener, err := net.Listen("tcp", ":"+sshPort)
+	listener, err := net.Listen("tcp", ":"+sshcfg.Port)
 	if err != nil {
 		log.Fatal("failed to listen for ssh:", err)
 	}
 	defer listener.Close()
 
-	log.Printf("Starting %s SSH server on port %s\n", desc, sshPort)
+	log.Printf("Starting %s SSH server on port %s\n", desc, sshcfg.Port)
 
 	for {
 		conn, err := listener.Accept()
@@ -65,11 +97,11 @@ func SSHHandler(sshPort string, desc string, sshIn chan<- []byte, sshOut <-chan 
 			log.Fatal("failed to accept incoming connection:", err)
 		}
 
-		go handleSSHConnection(conn, config, sshIn, sshOut)
+		go handleSSHConnection(conn, config, sshIn, sshOut, desc)
 	}
 }
 
-func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- []byte, sshOut <-chan []byte) {
+func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- []byte, sshOut <-chan []byte, desc string) {
 	defer conn.Close()
 
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
@@ -82,11 +114,11 @@ func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- [
 	go ssh.DiscardRequests(reqs)
 
 	for newChannel := range chans {
-		go handleSSHChannel(newChannel, sshIn, sshOut)
+		go handleSSHChannel(newChannel, sshIn, sshOut, desc)
 	}
 }
 
-func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- []byte, sshOut <-chan []byte) {
+func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- []byte, sshOut <-chan []byte, desc string) {
 	if newChannel.ChannelType() != "session" {
 		newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 		return
@@ -97,6 +129,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- []byte, sshOut <-c
 		log.Println("failed to accept channel:", err)
 		return
 	}
+	sshChannels[desc]=&channel
 	defer channel.Close()
 
 	var wg sync.WaitGroup
