@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
         "strings"
+	"sort"
 )
 
 type CommandFunction func(input string) string
@@ -18,28 +19,58 @@ type Command struct {
 }
 var monitorConfig map[string] string
 
-var commands = map[string] Command{
-	"echo": {
+var commands  map[string] Command
+
+func command_init(){
+	var m Command
+
+	log.Println("initialyze commands struct")
+	commands = make(map[string]Command, 20)
+
+	m=Command{
 		Name: "echo",
 		HelpText: "echoes back the argument",
 		Handler: echoCmd,
-	},
-	"help": {
+	}
+	commands["echo"]=m
+	m=Command{
 		Name: "help",
 		HelpText: "this text",
-		Handler: dummyCmd,
-	},
-	"ton": {
+		Handler: help,
+	}
+	commands["help"]=m
+	m=Command{
+		Name: "?",
+		HelpText: "this text",
+		Handler: help,
+	}
+	commands["?"]=m
+	m=Command{
 		Name: "ton",
 		HelpText: "command PDU using snmp to turn on the board",
 		Handler: ton,
-	},
-	"toff": {
+	}
+	commands["ton"]=m
+	m=Command{
 		Name: "toff",
 		HelpText: "command PDU using snmp to turn off the board",
 		Handler: toff,
-	},
+	}
+	commands["toff"]=m
+}
+func help(input string) string{
+	out:=""
+	list := make([]string, 0, len(commands))
 
+	for k := range commands {
+		list = append(list, k)
+	}
+	sort.Strings(list)
+
+	for _, item := range list {
+		out = out + fmt.Sprintf("\t%s:\t%s\n\r", commands[item].Name, commands[item].HelpText)
+	}
+	return out
 }
 
 func dummyCmd(input string) string{
@@ -114,6 +145,9 @@ func Monitor(monitorIn <-chan []byte, monitorOut chan<- []byte, monConfig map[st
 	monitorConfig=monConfig
 	output = []byte("\n\r> ")
 	outputFlag = true
+	command_init()
+
+	log.Println(commands)
 
 	wg.Add(1)
 	go func() {
@@ -133,14 +167,17 @@ func Monitor(monitorIn <-chan []byte, monitorOut chan<- []byte, monConfig map[st
 			outputFlag = true
 			input = sanitize(append(input, replaceByte(buff, 127,'\b')...))
 			if cmdEnter(input) {
-//				log.Printf("input@1 = '%s'", input)
 				input = sanitize(left(input, 13))
-//				log.Printf("input@2 = '%s'", left(input, ' '))
-				if _, ok := commands[string(left(input, 32))]; ok {
-					input = sanitize(input)
-					output = []byte("\n\r" + commands[string(left(input, 32))].Handler(string(input)) + "\n\r> ")
+				key := string(left(input, 32))
+				if key!="" {
+					if _, ok := commands[key]; ok {
+						input = sanitize(input)
+						output = []byte("\n\r" + commands[key].Handler(string(input)) + "\n\r> ")
+					} else {
+						output = []byte("\n\rError!\n\r> ")
+					}
 				} else {
-					output = []byte("\n\rError!\n\r> ")
+					output = []byte("\n\r> ")
 				}
 				input = input[:0]
 				outputFlag = true
