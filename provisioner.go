@@ -1,11 +1,45 @@
 package main
 import (
 	"log"
+	"fmt"
 )
 
 func main() {
 
-	config, err :=  fetch_config("config.json")
+	cmdline := parseCMDline()
+
+	if cmdline.Help {
+		fmt.Println(helpText())
+		return
+	}
+	if cmdline.GenKeys {
+		err := GenerateKeyPair("private", "public")
+		if err != nil {
+			fmt.Println("Error generating keys: ", err)
+			return
+		}
+		fmt.Println("keys generated")
+		return
+	}
+
+	if cmdline.Enc {
+		if cmdline.Key!="" {
+			data, err := EncryptConfig(cmdline.ConfigFN, cmdline.Key)
+			if err != nil {
+				fmt.Println("Error in crypting config: ", err)
+				return
+			}
+			err = WriteFile("config.rsa", data)
+			if err != nil {
+				fmt.Println("Error in crypting config: ", err)
+				return
+			}
+			fmt.Println("config.rsa written")
+			return
+		}
+	}
+
+	config, err :=  fetch_config(cmdline.ConfigFN, cmdline.Key)
 	if err!= nil {
 		log.Fatal(err)
 	}

@@ -1,8 +1,7 @@
 package main
 import (
-	"errors"
 	"encoding/json"
-	"os"
+	"io/ioutil"
 )
 
 type SSHCFG struct {
@@ -23,19 +22,35 @@ type Config struct {
         Monitor		map[string] string	`json:"monitor"`
 }
 
-func fetch_config(fn string) (Config, error) {
+func fetch_config(fn string, key string) (Config, error) {
 	var config Config
+	var err error
+	var fileContent []byte
 
-	configFile, err := os.Open(fn)
-	if err != nil {
-		return config,  errors.New("config file not found")
+	if key!="" {
+		fileContent, err =DecryptConfig(fn, key)
+	} else {
+		fileContent, err = ioutil.ReadFile(fn)
 	}
-	defer configFile.Close()
-
-	decoder := json.NewDecoder(configFile)
-	err = decoder.Decode(&config)
 	if err != nil {
-		return config, errors.New("json error")
+		return config, err
+	}
+
+	err = json.Unmarshal(fileContent, &config)
+	if err != nil {
+		return config, err
 	}
 	return config, nil
+}
+
+func enc_config(fn string, key string) error {
+	b, err:= EncryptConfig(fn, key)
+	if err != nil {
+		return err
+	}
+	err = WriteFile("config.rsa", b)
+	if err != nil {
+		return err
+	}
+	return nil
 }
