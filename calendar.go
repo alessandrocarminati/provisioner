@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"log"
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
@@ -18,10 +19,15 @@ type Reservation struct {
 	RName	string
 	Id	string
 }
-
+type Cmeet struct {
+	End	time.Time
+	Active	bool
+}
+var currentmeeting Cmeet
 //var Reservations []Reservation
 
 func NextReservation(credFN string, calendarN string, users []DefAuth) (*Reservation, error) {
+	var ids []string 
 
 	ctx := context.Background()
 	b, err := os.ReadFile(credFN)
@@ -49,7 +55,7 @@ func NextReservation(credFN string, calendarN string, users []DefAuth) (*Reserva
 	if len(events.Items) > 0 {
 		item := events.Items[0]
 
-		ids, err := GetOwners(*item, users)
+		ids, err = GetOwners(*item, users)
 		if err == nil {
 			start, err := time.Parse(time.RFC3339, item.Start.DateTime)
 			if err != nil {
@@ -59,7 +65,6 @@ func NextReservation(credFN string, calendarN string, users []DefAuth) (*Reserva
 			if err != nil {
 				return nil, fmt.Errorf("invalid date")
 			}
-
 			tmp := &Reservation{
 				Start:	start,
 				End:	end,
@@ -67,6 +72,7 @@ func NextReservation(credFN string, calendarN string, users []DefAuth) (*Reserva
 				RName:  item.Summary,
 				Id:	item.Id,
 			}
+
 			return tmp, nil
 		}
 	}
@@ -93,4 +99,45 @@ func valid(s string, users []DefAuth) bool {
 		}
 	}
 	return false
+}
+
+func checkCalendar(){
+	log.Println("checking calendar")
+	next, err := NextReservation("cred.json", "primary", GenAuth)
+	if err == nil {
+		log.Printf("checkCalendar: desc: %s", next.RName)
+
+		if currentmeeting.Active && (time.Now().After(currentmeeting.End)) {
+			for i, item := range GenAuth {
+				if item.service == "tunnel" {
+					 GenAuth[i].state = false
+				}
+			}
+		}
+		if time.Now().After(next.Start) {
+			currentmeeting.Active=true
+			currentmeeting.End=next.End
+			for i, item := range GenAuth {
+				if item.service == "tunnel" {
+					for _, o := range next.Owner {
+	                		        if item.name == o {
+							GenAuth[i].state = true
+						}
+					}
+	        	        }
+		        }
+		}
+	} else {
+		log.Printf("next event: none")
+	}
+}
+func calendarPoller(){
+	ticker := time.Tick(1 * time.Minute)
+
+	for {
+		select {
+			case <-ticker:
+				checkCalendar()
+		}
+	}
 }

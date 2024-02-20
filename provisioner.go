@@ -12,6 +12,16 @@ func main() {
 		fmt.Println(helpText())
 		return
 	}
+
+	if cmdline.CalFetch {
+		_, err := NextReservation("cred.json", "primary", nil)
+		if err!=nil {
+			fmt.Println("Error accessing calendar: ", err)
+			return
+		}
+		fmt.Println("Calendar access ok")
+		return
+		}
 	if cmdline.GenKeys {
 		err := GenerateKeyPair("private", "public")
 		if err != nil {
@@ -56,5 +66,6 @@ func main() {
 	sshToMonitor := make(chan []byte)
 	go SSHHandler(config.SSHMon, "monitor", monitorToSSH, sshToMonitor, true)
 	go Monitor(monitorToSSH, sshToMonitor, config.Monitor)
+	go calendarPoller()
 	select {}
 }
