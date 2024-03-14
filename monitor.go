@@ -24,7 +24,7 @@ var commands  map[string] Command
 func command_init(){
 	var m Command
 
-	log.Println("initialyze commands struct")
+	log.Println("Initialyzing monitor commands struct")
 	commands = make(map[string]Command, 20)
 
 	m=Command{

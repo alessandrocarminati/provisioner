@@ -6,6 +6,7 @@ import (
 )
 
 func HTTPHandler(rootDir string, httpPort string) {
+	log.Println("Starting http service")
 	http.Handle("/", http.FileServer(http.Dir(rootDir)))
 
 	http.HandleFunc("/api/example", func(w http.ResponseWriter, r *http.Request) {
