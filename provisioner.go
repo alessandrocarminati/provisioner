@@ -53,6 +53,8 @@ func main() {
 	if err!= nil {
 		log.Fatal(err)
 	}
+
+	go syslog_service(config.LogFile, config.SyslogPort)
 	go TFTPHandler(config.TFTPDirectory)
 	go HTTPHandler(config.TFTPDirectory, config.HTTPPort)
 

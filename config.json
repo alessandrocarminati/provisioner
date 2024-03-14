@@ -1,4 +1,6 @@
 {
+  "syslog_port": "514",
+  "logfile": "provisioner.log",
   "tftp_directory": "./files/",
   "http_port": "8080",
   "ssh_serial_tunnel":{

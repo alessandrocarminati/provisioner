@@ -11,6 +11,8 @@ type SSHCFG struct {
         }
 
 type Config struct {
+	SyslogPort	string			`json:"syslog_port"`
+	LogFile		string			`json:"logfile"`
 	TFTPDirectory	string			`json:"tftp_directory"`
 	HTTPPort	string			`json:"http_port"`
 	SSHSerTun	SSHCFG			`json:"ssh_serial_tunnel"`
