@@ -7,6 +7,7 @@ import (
 	"log"
 )
 func TFTPHandler(rootDir string) {
+	log.Println("Starting TFTP service with rootdir: ", rootDir)
 	server := tftp.NewServer(
 		func(filename string, rf io.ReaderFrom) error {
 			fmt.Printf("TFTP Request: %s\n", filename)
