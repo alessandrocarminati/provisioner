@@ -7,7 +7,7 @@ import (
 	"github.com/tarm/serial"
 )
 
-func SerialHandler(serialPort string, BaudRate int, serialIn <-chan []byte, serialOut chan<- []byte) {
+func SerialHandler(serialPort string, BaudRate int, serialIn <-chan byte, serialOut chan<- byte) {
 	var wg sync.WaitGroup
 	cfg := &serial.Config{Name: serialPort, Baud: BaudRate}
 	serialPortInstance, err := serial.OpenPort(cfg)
@@ -20,12 +20,14 @@ func SerialHandler(serialPort string, BaudRate int, serialIn <-chan []byte, seri
 	go func() {
 		buf := make([]byte, 4096)
 		for {
-			n, err := serialPortInstance.Read(buf)
+			_, err := serialPortInstance.Read(buf)
 			if err != nil {
 				log.Println("Error reading from serial port:", err)
 				return
 			}
-			serialOut <- buf[:n]
+			for _, b := range buf {
+				serialOut <- b
+			}
 		}
 	}()
 
@@ -33,7 +35,7 @@ func SerialHandler(serialPort string, BaudRate int, serialIn <-chan []byte, seri
 	go func() {
 		for {
 			data := <-serialIn
-			_, err := serialPortInstance.Write(data)
+			_, err := serialPortInstance.Write([]byte{data})
 			if err != nil {
 				log.Println("Error writing to serial port:", err)
 				return

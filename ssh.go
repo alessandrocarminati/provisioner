@@ -31,7 +31,7 @@ func checkPerm(token string, service string) bool {
 	return false
 }
 
-func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- []byte, sshOut <-chan []byte, def_aut bool) {
+func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byte, def_aut bool) {
 	authorizedKeysBytes, err := os.ReadFile(sshcfg.Authorized_keys)
 	if err != nil {
 		log.Fatalf("Failed to load authorized_keys, err: %v", err)
@@ -101,7 +101,7 @@ func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- []byte, sshOut <-chan [
 	}
 }
 
-func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- []byte, sshOut <-chan []byte, desc string) {
+func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- byte, sshOut <-chan byte, desc string) {
 	defer conn.Close()
 
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
@@ -118,7 +118,7 @@ func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- [
 	}
 }
 
-func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- []byte, sshOut <-chan []byte, desc string) {
+func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-chan byte, desc string) {
 	if newChannel.ChannelType() != "session" {
 		newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 		return
@@ -139,7 +139,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- []byte, sshOut <-c
 		defer wg.Done()
 		for {
 			data := <-sshOut
-			_, err := channel.Write(data)
+			_, err := channel.Write([]byte{data})
 			if err != nil {
 				if err != io.EOF {
 					log.Println("Error writing to SSH channel:", err)
@@ -161,7 +161,12 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- []byte, sshOut <-c
 				}
 				return
 			}
-			sshIn <- buf[:n]
+			if n>0 {
+				log.Printf("read %d bytes = '%s'", len(buf), string(buf))
+				for i:=0;i<n;i++ {
+					sshIn <- buf[i]
+				}
+			}
 		}
 	}()
 

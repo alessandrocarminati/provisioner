@@ -2,310 +2,116 @@ package main
 
 import (
 	"log"
-	"strconv"
-	"fmt"
 	"sync"
         "strings"
-	"sort"
 )
 
-type CommandFunction func(input string) string
-
-
-type Command struct {
-        Name        string
-        HelpText    string
-        Handler     CommandFunction
-}
+type CharFunc func(b byte, line *[]byte) []byte
 var monitorConfig map[string] string
+var prompt []byte = []byte("> ")
+var HandleChar [256] CharFunc
 
-var commands  map[string] Command
 
-func command_init(){
-	var m Command
-
-	log.Println("Initialyzing monitor commands struct")
-	commands = make(map[string]Command, 20)
-
-	m=Command{
-		Name: "echo",
-		HelpText: "echoes back the argument",
-		Handler: echoCmd,
+func HandleCharInit(){
+	for i:=0;i<=31;i++ {
+		HandleChar[i]=ChDiscard
 	}
-	commands["echo"]=m
-	m=Command{
-		Name: "help",
-		HelpText: "this text",
-		Handler: help,
+	for i:=32;i<=127;i++ {
+		HandleChar[i]=ChNormal
 	}
-	commands["help"]=m
-	m=Command{
-		Name: "?",
-		HelpText: "this text",
-		Handler: help,
+	for i:=128;i<=255;i++ {
+		HandleChar[i]=ChDiscard
 	}
-	commands["?"]=m
-	m=Command{
-		Name: "ton",
-		HelpText: "command PDU using snmp to turn on the board",
-		Handler: ton,
-	}
-	commands["ton"]=m
-	m=Command{
-		Name: "toff",
-		HelpText: "command PDU using snmp to turn off the board",
-		Handler: toff,
-	}
-	commands["toff"]=m
-	m=Command{
-		Name: "ulist",
-		HelpText: "list user state for tunnel",
-		Handler: listUser,
-	}
-	commands["ulist"]=m
-	m=Command{
-		Name: "enuser",
-		HelpText: "enable user for tunnel",
-		Handler: enuser,
-	}
-	commands["enuser"]=m
-	m=Command{
-		Name: "exit",
-		HelpText: "exit this shell",
-		Handler: exit,
-	}
-	commands["exit"]=m
-	m=Command{
-		Name: "tterm",
-		HelpText: "terminate serial tunnel connection",
-		Handler: tterm,
-	}
-	commands["tterm"]=m
+	HandleChar[0x0d]=ChEnter
+	HandleChar[0x7f]=ChBackspace
+	HandleChar[0x1b]=ChEscape
 }
 
-func exit(input string) string {
-	if c, ok := sshChannels["monitor"]; ok {
-		(*c).Close()
-	}
-	return "can't exit"
-}
-func tterm(input string) string {
-	out:= "can't exit"
-	if c, ok := sshChannels["tunnel"]; ok {
-		(*c).Close()
-		out="done!"
-	}
-	return out
-}
-func listUser(input string) string {
-	var out string
-
-	for _, item := range GenAuth {
-		if item.service == "tunnel" {
-			out = out + fmt.Sprintf("\t%s -> %t\n\r", item.name, item.state)
-		}
-	}
-	return out
-}
-
-func enuser(input string) string {
-	sarg := strings.Index(input, " ")
-	out:="user not found!"
-	if sarg == -1 {
-		return "Error: enuser <user>\n\rHint: user corresponds to the ssh pubkey comment."
-	}
-	for i, item := range GenAuth {
-		if item.service == "tunnel" {
-                        if item.name == input[sarg+1:] {
-				GenAuth[i].state = true
-				out="state updated"
-			}
-                }
-        }
-        return out
-}
-
-func help(input string) string{
-	out:=""
-	list := make([]string, 0, len(commands))
-
-	for k := range commands {
-		list = append(list, k)
-	}
-	sort.Strings(list)
-
-	for _, item := range list {
-		out = out + fmt.Sprintf("\t%s:\t%s\n\r", commands[item].Name, commands[item].HelpText)
-	}
-	return out
-}
-
-func dummyCmd(input string) string{
-	return "Not Implemented Yet :("
-}
-
-func ton(input string) string{
-	res:="Error config problem"
-	configOK := true
-	oid, ok := monitorConfig["snmp_pdu_ctrl_oid"]
-	configOK = configOK && ok
-	host, ok := monitorConfig["snmp_pdu_ctrl_host"]
-	configOK = configOK && ok
-	user, ok := monitorConfig["snmp_pdu_ctrl_user"]
-	configOK = configOK && ok
-	onValue, ok := monitorConfig["snmp_pdu_ctrl_on_val"]
-	configOK = configOK && ok
-	val, err := strconv.Atoi(onValue)
-	if err != nil {
-		configOK=false
-	}
-	if configOK {
-		res="on command sent"
-		err := snmpSetv3unsec(oid, val, host, user)
-		if err != nil {
-			res=fmt.Sprintf("Error setting SNMP: %s", err.Error())
-		}
-	}
-	return res
-}
-func toff(input string) string{
-	res:="Error config problem"
-	configOK := true
-	oid, ok := monitorConfig["snmp_pdu_ctrl_oid"]
-	configOK = configOK && ok
-	host, ok := monitorConfig["snmp_pdu_ctrl_host"]
-	configOK = configOK && ok
-	user, ok := monitorConfig["snmp_pdu_ctrl_user"]
-	configOK = configOK && ok
-	offValue, ok := monitorConfig["snmp_pdu_ctrl_off_val"]
-	configOK = configOK && ok
-	val, err := strconv.Atoi(offValue)
-	if err != nil {
-		configOK=false
-	}
-	if configOK {
-		res="off command sent"
-		err := snmpSetv3unsec(oid, val, host, user)
-		if err != nil {
-			res=fmt.Sprintf("Error setting SNMP: %s", err.Error())
-		}
-	}
-	return res
-}
-
-func echoCmd(input string) string{
-	i := strings.Index(input, " ")
-
-	if i == -1 {
-		return "error"
-	}
-	return input[i+1:]
-}
-
-
-func Monitor(monitorIn <-chan []byte, monitorOut chan<- []byte, monConfig map[string] string) {
+func Monitor(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[string] string) {
 	var wg sync.WaitGroup
-	var outputFlag bool = false
-	var output []byte
-	var input []byte
+	var line []byte
 
 	monitorConfig=monConfig
-	output = []byte("\n\r> ")
-	outputFlag = true
 	command_init()
-
-//		log.Println(commands)
-
-	wg.Add(1)
-	go func() {
-		for {
-			if outputFlag {
-				monitorOut <- output
-				outputFlag = false
-			}
-		}
-	}()
+	initEsc()
+	HandleCharInit()
+	out := prompt
 
 	wg.Add(1)
 	go func() {
 		for {
-			buff := <- monitorIn
-			output = replaceByte(buff, 127,'\b')
-			outputFlag = true
-			input = sanitize(append(input, replaceByte(buff, 127,'\b')...))
-			if cmdEnter(input) {
-				input = sanitize(left(input, 13))
-				key := string(left(input, 32))
-				if key!="" {
-					if _, ok := commands[key]; ok {
-						input = sanitize(input)
-						output = []byte("\n\r" + commands[key].Handler(string(input)) + "\n\r> ")
-					} else {
-						output = []byte("\n\rError!\n\r> ")
-					}
-				} else {
-					output = []byte("\n\r> ")
-				}
-				input = input[:0]
-				outputFlag = true
+			for _, c := range out {
+				monitorOut <- c
 			}
+			b := <- monitorIn
+			out = HandleChar[b](b, &line)
 		}
 	}()
 	wg.Wait()
 }
 
-func findRunePosition(str []byte, target byte) int {
-	for i, r := range str {
-		if r == target {
-			return i
+func ChEnter(b byte, line *[]byte) []byte{
+	log.Printf("ChEnter %x '%s'\n", b,string(*line))
+	out := "\n\r"
+	cmd := strings.Split(string(*line), " ")
+	key := cmd[0]
+	args := strings.Join(cmd[1:]," ")
+	log.Printf("key=%s args='%s'", key, args)
+	if key!="" {
+		if _, ok := commands[key]; ok {
+			out = out + commands[key].Handler(args)
+		} else {
+			out = out + "Error!\r\n"
 		}
 	}
-	return -1
-}
-func left(input []byte, c byte) []byte {
-    newlineIndex := findRunePosition(input, c)
-    if newlineIndex != -1 {
-        return input[:newlineIndex]
-    }
-    return input
+	*line = []byte{}
+	return []byte(out + string(prompt))
+
 }
 
+func ChNormal(b byte, line *[]byte) []byte{
+	log.Printf("ChNormal %x '%s'\n", b,string(*line))
 
-func cmdEnter(input []byte) bool{
-	for _, c  := range input {
-		if c==13{
-			return true
-		}
-	}
-	return false
-}
-func sanitize(input []byte) []byte {
-	var output []byte
-
-	for _, char := range input {
-		if char == '\b' {
-			log.Println("\b")
-			if len(output) > 0 {
-				output = output[:len(output)-1]
+	out := []byte{b}
+	*line = append(*line,b)
+	if Escape > 0 {
+		Escape --
+		if Escape == 0 {
+			key := string((*line)[len(*line)-2:])
+			if _, ok := EscapeFunc[key]; ok {
+				log.Printf("Escape sequence '%s'", key)
+				EscapeFunc[key](line)
 			}
-		} else {
-			output=append(output,char)
+			*line = (*line)[:len(*line)-2]
 		}
-	}
+		return nil
 
-	return output
+	}
+        return out
 }
 
-func replaceByte(input []byte, aa, bb byte) []byte {
-	output := make([]byte, len(input))
+func ChBackspace(b byte, line *[]byte) []byte{
+	var ret []byte
 
-	for i, b := range input {
-		if b == aa {
-			output[i] = bb
-		} else {
-			output[i] = b
-		}
+	log.Printf("ChBackspace %x '%s'\n", b,string(*line))
+	oldLine := *line
+	if len(oldLine) <= 0 {
+		ret = nil
+	} else {
+		newLine := oldLine[:len(oldLine)-1]
+		*line = newLine
+		ret = []byte{8,32,8}
 	}
+	return ret
+}
 
-	return output
+func ChDiscard(b byte, line *[]byte) []byte{
+	log.Printf("ChDiscard %x '%s'\n", b,string(*line))
+        return nil
+}
+
+func ChEscape(b byte, line *[]byte) []byte{
+        log.Printf("Escape enabled'\n")
+	Escape = 2
+        return nil
 }
