@@ -20,13 +20,13 @@ func SerialHandler(serialPort string, BaudRate int, serialIn <-chan byte, serial
 	go func() {
 		buf := make([]byte, 4096)
 		for {
-			_, err := serialPortInstance.Read(buf)
+			n, err := serialPortInstance.Read(buf)
 			if err != nil {
 				log.Println("Error reading from serial port:", err)
 				return
 			}
-			for _, b := range buf {
-				serialOut <- b
+			for i:=0;i<n;i++ {
+				serialOut <- buf[i]
 			}
 		}
 	}()
