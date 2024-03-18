@@ -18,6 +18,8 @@
     "baud_rate": 115200
   },
   "monitor": {
+  "pdu_type": "tasmota",
+  "tasmota_host": "tasmota-8351ea-4586.hqhome163.com",
   "snmp_pdu_ctrl_oid": "1.2.3.4.5.6.7.8.9.10",
   "snmp_pdu_ctrl_host": "pdudevice.hqhome163.com",
   "snmp_pdu_ctrl_user": "someuser",
