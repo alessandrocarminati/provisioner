@@ -31,8 +31,12 @@ func Monitor(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[string
 	var wg sync.WaitGroup
 	var line []byte
 
+	fences=make(map[string]FenceFuncs, 20)
+
 	monitorConfig=monConfig
 	command_init()
+	fences["snmp"] = snmpSwitch
+	fences["tasmota"] = tasmotaSwitch
 	initEsc()
 	HandleCharInit()
 	out := prompt

@@ -12,6 +12,18 @@ type DeviceState struct {
 	Power string `json:"POWER"`
 }
 
+func tasmotaSwitch(state string) error {
+	err := errors.New(fmt.Sprintf("Unknown command: %s", state))
+
+	if ((state!="ON") || (state!="OFF")) {
+		tasmota_host, ok := monitorConfig["tasmota_host"]
+		if ok {
+			err = TasmotaSetState(tasmota_host, state)
+		}
+	}
+	return err
+}
+
 func TasmotaQueryState(host string) (bool, error) {
 	url := fmt.Sprintf("http://%s/cm?cmnd=power", host)
 	resp, err := http.Get(url)
