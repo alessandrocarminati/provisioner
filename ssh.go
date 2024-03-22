@@ -162,7 +162,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-cha
 				return
 			}
 			if n>0 {
-				log.Printf("read %d bytes = '%s'", len(buf), string(buf))
+				//log.Printf("read %d bytes = '%s'", len(buf), string(buf))
 				for i:=0;i<n;i++ {
 					sshIn <- buf[i]
 				}

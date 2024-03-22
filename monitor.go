@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+//	"log"
 	"sync"
         "strings"
 )
@@ -51,12 +51,12 @@ func Monitor(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[string
 }
 
 func ChEnter(b byte, line *[]byte) []byte{
-	log.Printf("ChEnter %x '%s'\n", b,string(*line))
+//	log.Printf("ChEnter %x '%s'\n", b,string(*line))
 	out := "\n\r"
 	cmd := strings.Split(string(*line), " ")
 	key := cmd[0]
 	args := strings.Join(cmd[1:]," ")
-	log.Printf("key=%s args='%s'", key, args)
+	//log.Printf("key=%s args='%s'", key, args)
 	if key!="" {
 		if _, ok := commands[key]; ok {
 			out = out + commands[key].Handler(args)
@@ -70,7 +70,7 @@ func ChEnter(b byte, line *[]byte) []byte{
 }
 
 func ChNormal(b byte, line *[]byte) []byte{
-	log.Printf("ChNormal %x '%s'\n", b,string(*line))
+//	log.Printf("ChNormal %x '%s'\n", b,string(*line))
 
 	out := []byte{b}
 	*line = append(*line,b)
@@ -79,7 +79,7 @@ func ChNormal(b byte, line *[]byte) []byte{
 		if Escape == 0 {
 			key := string((*line)[len(*line)-2:])
 			if _, ok := EscapeFunc[key]; ok {
-				log.Printf("Escape sequence '%s'", key)
+//				log.Printf("Escape sequence '%s'", key)
 				EscapeFunc[key](line)
 			}
 			*line = (*line)[:len(*line)-2]
@@ -93,7 +93,7 @@ func ChNormal(b byte, line *[]byte) []byte{
 func ChBackspace(b byte, line *[]byte) []byte{
 	var ret []byte
 
-	log.Printf("ChBackspace %x '%s'\n", b,string(*line))
+//	log.Printf("ChBackspace %x '%s'\n", b,string(*line))
 	oldLine := *line
 	if len(oldLine) <= 0 {
 		ret = nil
@@ -106,12 +106,12 @@ func ChBackspace(b byte, line *[]byte) []byte{
 }
 
 func ChDiscard(b byte, line *[]byte) []byte{
-	log.Printf("ChDiscard %x '%s'\n", b,string(*line))
+//	log.Printf("ChDiscard %x '%s'\n", b,string(*line))
         return nil
 }
 
 func ChEscape(b byte, line *[]byte) []byte{
-        log.Printf("Escape enabled'\n")
+//        log.Printf("Escape enabled'\n")
 	Escape = 2
         return nil
 }
