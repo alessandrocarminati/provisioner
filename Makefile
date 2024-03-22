@@ -19,4 +19,4 @@ provisioner.upx: provisioner
 	touch provisioner.upx
 
 clean:
-	rm provisioner
+	rm -rf  provisioner provisioner.upx
