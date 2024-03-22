@@ -4,10 +4,18 @@ import (
 	"fmt"
 )
 
+var Build string
+var Version string
+var Hash string
+
 func main() {
 
 	cmdline := parseCMDline()
 
+	if cmdline.VerRq {
+		fmt.Printf("Provisioner Ver. %s.%s (%s)\n", Version, Build, Hash)
+		return
+	}
 	if cmdline.Help {
 		fmt.Println(helpText())
 		return
