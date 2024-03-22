@@ -3,17 +3,17 @@ MINOR=$(shell ./min.sh)
 CHASH=$(shell git log --pretty=oneline| head -n1 |cut -d" " -f1)
 DIRTY=$(shell ./dirty.sh)
 ifeq ($(shell command -v upx 2> /dev/null),)
-	ALL_DEPENDENCIES := provisioner
+	ALL_DEPENDENCIES := provisioner-$(MAJOR).$(MINOR)
 else
-	ALL_DEPENDENCIES := provisioner.upx
+	ALL_DEPENDENCIES := provisioner.upx-$(MAJOR).$(MINOR)
 endif
 
 all: $(ALL_DEPENDENCIES)
 
-provisioner: asymcrypt.go  calendar.go  calendar_utils.go  cmdline.go  commands.go  config.go  escapes.go  http.go  monitor.go  provisioner.go  serial.go  snmp.go  ssh.go  syslog.go  tftp.go
+provisioner-$(MAJOR).$(MINOR): asymcrypt.go  calendar.go  calendar_utils.go  cmdline.go  commands.go  config.go  escapes.go  http.go  monitor.go  provisioner.go  serial.go  snmp.go  ssh.go  syslog.go  tftp.go
 	go build -ldflags "-w -X 'main.Version=$(MAJOR)' -X 'main.Build=$(MINOR)' -X 'main.Hash=$(CHASH)' -X 'main.Dirty=$(DIRTY)'" -o  $(prefix)provisioner-$(MAJOR).$(MINOR)
 
-provisioner.upx: provisioner
+provisioner.upx-$(MAJOR).$(MINOR): provisioner-$(MAJOR).$(MINOR)
 	upx  $(prefix)provisioner-$(MAJOR).$(MINOR) -o  $(prefix)provisioner.upx-$(MAJOR).$(MINOR)
 	touch $(prefix)provisioner.upx-$(MAJOR).$(MINOR)
 
