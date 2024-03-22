@@ -13,6 +13,11 @@ func main() {
 
 	cmdline := parseCMDline()
 
+	if cmdline.VerJ {
+		fmt.Printf("{\n\t\"Major\": \"%s\",\n\t\"Minor\": \"%s\",\n\t\"Hash\": \"%s\",\n\t\"Dirty\": \"%s\"\n}\n", Version, Build, Hash, Dirty)
+		return
+	}
+
 	if cmdline.VerRq {
 		fmt.Printf("Provisioner Ver. %s.%s (%s) %s\n", Version, Build, Hash, Dirty)
 		return
