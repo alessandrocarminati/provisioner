@@ -7,13 +7,14 @@ import (
 var Build string
 var Version string
 var Hash string
+var Dirty string
 
 func main() {
 
 	cmdline := parseCMDline()
 
 	if cmdline.VerRq {
-		fmt.Printf("Provisioner Ver. %s.%s (%s)\n", Version, Build, Hash)
+		fmt.Printf("Provisioner Ver. %s.%s (%s) %s\n", Version, Build, Hash, Dirty)
 		return
 	}
 	if cmdline.Help {
