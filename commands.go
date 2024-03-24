@@ -24,7 +24,7 @@ var fences map[string] FenceFuncs
 func command_init(){
 	var m Command
 
-	log.Println("Initialyzing monitor commands struct")
+	debugPrint(log.Printf, levelInfo, "Initialyzing monitor commands struct")
 	commands = make(map[string]Command, 20)
 
 	m=Command{
@@ -84,12 +84,14 @@ func command_init(){
 }
 
 func exit(input string) string {
+	debugPrint(log.Printf, levelInfo, "exit command requested")
 	if c, ok := sshChannels["monitor"]; ok {
 		(*c).Close()
 	}
 	return "can't exit\r\n"
 }
 func tterm(input string) string {
+	debugPrint(log.Printf, levelInfo, "tterm command requested")
 	out:= "can't exit"
 	if c, ok := sshChannels["tunnel"]; ok {
 		(*c).Close()
@@ -100,6 +102,7 @@ func tterm(input string) string {
 func listUser(input string) string {
 	var out string
 
+	debugPrint(log.Printf, levelInfo, "listUser command requested")
 	for _, item := range GenAuth {
 		if item.service == "tunnel" {
 			out = out + fmt.Sprintf("\t%s -> %t\n\r", item.name, item.state)
@@ -110,6 +113,7 @@ func listUser(input string) string {
 
 func enuser(input string) string {
 	out:="user not found!"
+	debugPrint(log.Printf, levelInfo, "enuser command requested")
 	if len(input) == 0 {
 		out = "Error: enuser <user>\n\rHint: user corresponds to the ssh pubkey comment."
 	} else {
@@ -127,6 +131,7 @@ func enuser(input string) string {
 
 func help(input string) string{
 	out:=""
+	debugPrint(log.Printf, levelInfo, "help command requested")
 	list := make([]string, 0, len(commands))
 
 	for k := range commands {
@@ -141,6 +146,7 @@ func help(input string) string{
 }
 
 func dummyCmd(input string) string{
+	debugPrint(log.Printf, levelInfo, "dummy command requested")
 	return "Not Implemented Yet :("+ "\r\n"
 }
 
@@ -155,26 +161,28 @@ func FenceSwitch(state string) string{
 			res=err.Error()
 			return res
 		}
-		return "OK\r\n"
+		return "Command sent! It may take up to 10 seconds.\r\n"
 	}
 	return "unknown PDU type\r\n"
 }
 
 
 func ton(input string) string{
+	debugPrint(log.Printf, levelInfo, "ton command requested")
 	return FenceSwitch("ON")
 }
 
 func toff(input string) string{
+	debugPrint(log.Printf, levelInfo, "toff command requested")
 	return FenceSwitch("OFF")
 }
 
 func echoCmd(input string) string{
 
+	debugPrint(log.Printf, levelInfo, "echo command requested")
 	log.Printf("echoCmd arg'%s'\n", input)
 	if len(input) == 0 {
 		return "error"
 	}
 	return input + "\r\n"
 }
-

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"io/ioutil"
 	"net/http"
 )
@@ -33,7 +34,7 @@ func TasmotaQueryState(host string) (bool, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, errors.New("unable to get device state")
+		return false, errors.New("unable to get device state\r\n")
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -59,18 +60,19 @@ func TasmotaQueryState(host string) (bool, error) {
 
 func TasmotaSetState(host string, state string) error {
 	if state != "ON" && state != "OFF" {
-		return errors.New("invalid state provided")
+		return errors.New("invalid state provided\r\n")
 	}
 
 	url := fmt.Sprintf("http://%s/cm?cmnd=power+%s", host, state)
 	resp, err := http.Get(url)
 	if err != nil {
-		return err
+		debugPrint(log.Printf, levelError, err.Error() )
+		return errors.New("unable to set device state\r\n")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("unable to set device state")
+		return errors.New("unable to set device state\r\n")
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -85,7 +87,7 @@ func TasmotaSetState(host string, state string) error {
 	}
 
 	if deviceState.Power != state {
-		return errors.New("device state not set correctly")
+		return errors.New("device state not set correctly\r\n")
 	}
 
 	return nil

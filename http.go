@@ -2,22 +2,22 @@ package main
 import (
 	"net/http"
 	"log"
-	"fmt"
 )
 
 func HTTPHandler(rootDir string, httpPort string) {
-	log.Println("Starting http service on port: "+ httpPort)
+	debugPrint(log.Printf, levelWarning, "Starting http service on port: "+ httpPort)
 	http.Handle("/", http.FileServer(http.Dir(rootDir)))
 
 	http.HandleFunc("/api/example", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "This is an example API response.")
+		debugPrint(log.Printf, levelWarning, "This is an example API response.")
 	})
 
 	bind:=":"+httpPort
 	err := http.ListenAndServe(bind, nil)
 	if err != nil {
-		log.Fatal("Error starting HTTP server:", err)
+		debugPrint(log.Printf, levelError, "Error starting HTTP server: %s", err.Error())
+	} else {
+	debugPrint(log.Printf, levelWarning, "http service is active on %s", bind)
 	}
-	log.Printf("http service is active on %s", bind)
 }
 

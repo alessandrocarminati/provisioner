@@ -34,17 +34,16 @@ func checkPerm(token string, service string) bool {
 func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byte, def_aut bool) {
 	authorizedKeysBytes, err := os.ReadFile(sshcfg.Authorized_keys)
 	if err != nil {
-		log.Fatalf("Failed to load authorized_keys, err: %v", err)
+		debugPrint(log.Printf, levelPanic, "Failed to load authorized_keys, err: %s", err.Error())
 	}
 
 	authorizedKeysMap := map[string]bool{}
 	for len(authorizedKeysBytes) > 0 {
 		pubKey, comment, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
 		if err != nil {
-			log.Println("Only one line per user, no extra lines")
-			log.Fatal(err)
+			debugPrint(log.Printf, levelPanic, "Only one line per user, no extra lines: %s", err.Error())
 		}
-//		log.Printf("add key for %s -> %s", comment, hex.EncodeToString(pubKey.Marshal()))
+		debugPrint(log.Printf, levelDebug, "add key for %s -> %s", comment, hex.EncodeToString(pubKey.Marshal()))
 		GenAuth = append(GenAuth, DefAuth{
 			service: desc,
 			name: comment,
@@ -57,7 +56,7 @@ func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byt
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			if authorizedKeysMap[string(pubKey.Marshal())] {
-//				log.Printf("Authorized user attempt check permissions")
+				debugPrint(log.Printf, levelDebug, "Authorized user attempt check permissions")
 				if checkPerm(hex.EncodeToString(pubKey.Marshal()), desc) {
 					return &ssh.Permissions{
 						Extensions: map[string]string{
@@ -74,27 +73,27 @@ func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byt
 
 	privateBytes, err := os.ReadFile(sshcfg.IdentitFn)
 	if err != nil {
-		log.Fatal("Failed to load private key: ", err)
+		debugPrint(log.Printf, levelPanic, "Failed to load private key: %s", err.Error())
 	}
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		log.Fatal("Failed to parse private key: ", err)
+		debugPrint(log.Printf, levelPanic, "Failed to parse private key: %s", err.Error())
 	}
 	config.AddHostKey(private)
 
 
 	listener, err := net.Listen("tcp", ":"+sshcfg.Port)
 	if err != nil {
-		log.Fatal("failed to listen for ssh:", err)
+		debugPrint(log.Printf, levelPanic, "failed to listen for ssh: %s", err.Error())
 	}
 	defer listener.Close()
 
-	log.Printf("Starting %s SSH server on port %s\n", desc, sshcfg.Port)
+	debugPrint(log.Printf, levelWarning, "Starting %s SSH server on port %s\n", desc, sshcfg.Port)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Fatal("failed to accept incoming connection:", err)
+			debugPrint(log.Printf, levelPanic, "failed to accept incoming connection: %s", err.Error())
 		}
 
 		go handleSSHConnection(conn, config, sshIn, sshOut, desc)
@@ -106,7 +105,7 @@ func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- b
 
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
-		log.Println("failed to establish SSH connection:", err)
+		debugPrint(log.Printf, levelError, "failed to establish SSH connection: %s", err.Error())
 		return
 	}
 	defer sshConn.Close()
@@ -126,7 +125,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-cha
 
 	channel, _, err := newChannel.Accept()
 	if err != nil {
-		log.Println("failed to accept channel:", err)
+		debugPrint(log.Printf, levelError, "failed to accept channel: %s", err.Error())
 		return
 	}
 	sshChannels[desc]=&channel
@@ -142,7 +141,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-cha
 			_, err := channel.Write([]byte{data})
 			if err != nil {
 				if err != io.EOF {
-					log.Println("Error writing to SSH channel:", err)
+					debugPrint(log.Printf, levelError, "Error writing to SSH channel: %s", err.Error())
 				}
 				return
 			}
@@ -157,12 +156,12 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-cha
 			n, err := channel.Read(buf)
 			if err != nil {
 				if err != io.EOF {
-					log.Println("Error reading from SSH channel:", err)
+					debugPrint(log.Printf, levelError, "Error reading from SSH channel: %s", err.Error())
 				}
 				return
 			}
 			if n>0 {
-				//log.Printf("read %d bytes = '%s'", len(buf), string(buf))
+				debugPrint(log.Printf, levelDebug, "read %d bytes = '%s'", len(buf), string(buf))
 				for i:=0;i<n;i++ {
 					sshIn <- buf[i]
 				}

@@ -7,10 +7,10 @@ import (
 	"log"
 )
 func TFTPHandler(rootDir string) {
-	log.Println("Starting TFTP service with rootdir: ", rootDir)
+	debugPrint(log.Printf, levelWarning, "Starting TFTP service with rootdir: %s", rootDir )
 	server := tftp.NewServer(
 		func(filename string, rf io.ReaderFrom) error {
-			fmt.Printf("TFTP Request: %s\n", filename)
+			debugPrint(log.Printf, levelNotice, "TFTP Request: %s\n", filename)
 
 			filePath := rootDir + filename
 
@@ -30,8 +30,7 @@ func TFTPHandler(rootDir string) {
 	bind:="0.0.0.0:69"
 	err := server.ListenAndServe(bind)
 	if err != nil {
-		fmt.Printf("Error starting TFTP server: %s\n", err)
+		debugPrint(log.Printf, levelError, "Error starting TFTP server: %s", err.Error())
 	}
-	log.Printf("TFTP server is active on %s", bind)
+	debugPrint(log.Printf, levelWarning,"TFTP server is active on %s", bind)
 }
-

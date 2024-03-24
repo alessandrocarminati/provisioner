@@ -12,7 +12,7 @@ func SerialHandler(serialPort string, BaudRate int, serialIn <-chan byte, serial
 	cfg := &serial.Config{Name: serialPort, Baud: BaudRate}
 	serialPortInstance, err := serial.OpenPort(cfg)
 	if err != nil {
-		log.Fatal("Error opening serial port:", err)
+		debugPrint(log.Printf, levelPanic, "Error opening serial port: %s", err.Error())
 	}
 	defer serialPortInstance.Close()
 
@@ -22,7 +22,7 @@ func SerialHandler(serialPort string, BaudRate int, serialIn <-chan byte, serial
 		for {
 			n, err := serialPortInstance.Read(buf)
 			if err != nil {
-				log.Println("Error reading from serial port:", err)
+				debugPrint(log.Printf, levelDebug, "Error reading from serial port: %s", err.Error())
 				return
 			}
 			for i:=0;i<n;i++ {
@@ -37,12 +37,10 @@ func SerialHandler(serialPort string, BaudRate int, serialIn <-chan byte, serial
 			data := <-serialIn
 			_, err := serialPortInstance.Write([]byte{data})
 			if err != nil {
-				log.Println("Error writing to serial port:", err)
+				debugPrint(log.Printf, levelDebug, "Error writing to serial port: %s", err.Error())
 				return
 			}
 		}
 	}()
 	wg.Wait()
 }
-
-

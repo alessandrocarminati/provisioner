@@ -16,15 +16,15 @@ func initEsc(){
 }
 
 func arrowUp(line *[]byte){
-	log.Println("Arrow up")
+	debugPrint(log.Printf, levelDebug, "escape char Arrow up")
 }
 func arrowDown(line *[]byte){
-	log.Println("Arrow down")
+	debugPrint(log.Printf, levelDebug, "escape char Arrow Down")
 }
 func arrowLeft(line *[]byte){
-	log.Println("Arrow Left")
+	debugPrint(log.Printf, levelDebug, "escape char Arrow Left")
 }
 func arrowRight(line *[]byte){
-	log.Println("Arrow Right")
+	debugPrint(log.Printf, levelDebug, "escape char Arrow Right")
 }
 

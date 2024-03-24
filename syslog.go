@@ -6,7 +6,7 @@ import (
 	"os"
 	)
 func syslog_service(fn string, port string) {
-	log.Printf("Starting syslog service on port %s -> %s ", port, fn)
+	debugPrint(log.Printf, levelWarning, "Starting syslog service on port %s -> %s ", port, fn)
 	channel := make(syslog.LogPartsChannel)
 	handler := syslog.NewChannelHandler(channel)
 
@@ -18,7 +18,7 @@ func syslog_service(fn string, port string) {
 
 	file, err := os.OpenFile(fn, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatal(err)
+		debugPrint(log.Printf, levelError, err.Error())
 	}
 	defer file.Close()
 	logger := log.New(file, "", log.LstdFlags)

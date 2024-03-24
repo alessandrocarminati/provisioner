@@ -102,10 +102,10 @@ func valid(s string, users []DefAuth) bool {
 }
 
 func checkCalendar(){
-	log.Println("checking calendar")
+	debugPrint(log.Printf, levelNotice, "checking calendar" )
 	next, err := NextReservation("cred.json", "primary", GenAuth)
 	if err == nil {
-		log.Printf("checkCalendar: desc: %s", next.RName)
+		debugPrint(log.Printf, levelNotice, "checkCalendar: desc: %s", next.RName)
 
 		if currentmeeting.Active && (time.Now().After(currentmeeting.End)) {
 			for i, item := range GenAuth {
@@ -128,7 +128,7 @@ func checkCalendar(){
 		        }
 		}
 	} else {
-		log.Printf("next event: none")
+		debugPrint(log.Printf, levelNotice, "next event: none")
 	}
 }
 func calendarPoller(){
