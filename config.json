@@ -18,7 +18,7 @@
     "baud_rate": 115200
   },
   "monitor": {
-  "pdu_type": "tasmota",
+  "pdu_type": "beaker",
   "tasmota_host": "tasmota-8351ea-4586.hqhome163.com",
   "snmp_pdu_ctrl_oid": "1.2.3.4.5.6.7.8.9.10",
   "snmp_pdu_ctrl_host": "pdudevice.hqhome163.com",
@@ -26,6 +26,11 @@
   "snmp_pdu_ctrl_on_val": "1",
   "snmp_pdu_ctrl_off_val": "0",
   "snmp_pdu_ctrl_on_type": "int",
-  "snmp_pdu_ctrl_off_type": "int"
+  "snmp_pdu_ctrl_off_type": "int",
+  "beaker_username": "user",
+  "beaker_password": "password",
+  "beaker_ignoressl": "true",
+  "beaker_url": "beaker.example.com",
+  "beaker_device": "cuteboard.example.com"
   }
 }

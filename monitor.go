@@ -37,6 +37,7 @@ func Monitor(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[string
 	command_init()
 	fences["snmp"] = snmpSwitch
 	fences["tasmota"] = tasmotaSwitch
+	fences["beaker"] = beakerSwitch
 	initEsc()
 	HandleCharInit()
 	out := prompt
