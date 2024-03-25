@@ -69,6 +69,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	debugPrint(log.Printf, levelWarning, "Provisioner Ver. %s.%s (%s) %s\n", Version, Build, Hash, Dirty)
 	go syslog_service(config.LogFile, config.SyslogPort)
 	go TFTPHandler(config.TFTPDirectory)
 	go HTTPHandler(config.TFTPDirectory, config.HTTPPort)
