@@ -26,8 +26,8 @@ dist:
 	@cp config.json dist/config-sample.json
 	@echo "put here your google credentials" >dist/cred.json
 	@for arch in 386 amd64 arm arm64 mipsle; do \
-		$(MAKE) provisioner GOOS=linux GOARCH=$$arch prefix=dist/$${arch}.; \
-		$(MAKE) provisioner.upx GOOS=linux GOARCH=$$arch prefix=dist/$${arch}.; \
+		$(MAKE) provisioner-$(MAJOR).$(MINOR) GOOS=linux GOARCH=$$arch prefix=dist/$${arch}.; \
+		$(MAKE) provisioner.upx-$(MAJOR).$(MINOR) GOOS=linux GOARCH=$$arch prefix=dist/$${arch}.; \
 		tar zcf dist/provisioner.$${arch}-$(MAJOR).$(MINOR).tar.gz dist/$${arch}.provisioner.upx-$(MAJOR).$(MINOR) dist/$${arch}.provisioner-$(MAJOR).$(MINOR) dist/config-sample.json dist/cred.json; \
 		rm -f dist/$${arch}.provisioner.upx-$(MAJOR).$(MINOR) dist/$${arch}.provisioner-$(MAJOR).$(MINOR); \
 	done
