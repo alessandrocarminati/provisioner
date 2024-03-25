@@ -19,7 +19,7 @@ var (
 	levelDebug	= DebugLevels{5, "Debug  "}
 )
 
-var DebugLevel int = 2
+var DebugLevel int
 
 type PrintFunc func(format string, a ...interface{})
 

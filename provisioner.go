@@ -12,6 +12,7 @@ var Dirty string
 func main() {
 
 	cmdline := parseCMDline()
+	DebugLevel = cmdline.DebLev
 
 	if cmdline.VerJ {
 		fmt.Printf("{\n\t\"Major\": \"%s\",\n\t\"Minor\": \"%s\",\n\t\"Hash\": \"%s\",\n\t\"Dirty\": \"%s\"\n}\n", Version, Build, Hash, Dirty)

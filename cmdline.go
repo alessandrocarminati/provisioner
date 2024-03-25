@@ -12,6 +12,7 @@ type Cmdline struct {
 	Enc      bool
 	GenKeys  bool
 	CalFetch bool
+	DebLev   int
 }
 
 func parseCMDline() Cmdline {
@@ -22,6 +23,7 @@ func parseCMDline() Cmdline {
 	calFetc1stPtr := flag.Bool("calfetch", false, "fetch an element from calendar. Useful for 1st oauth authorization")
 	VerRq := flag.Bool("version", false, "Returns the version string")
 	VerJ := flag.Bool("verj", false, "Returns the version json")
+	Dl := flag.Int("debug", 2, "stes the message level: 0: panics, 1: Errors, 2: Warnings - default, 3: Notices, 4:Infos, 5: Debugs")
 
 	helpPtr := flag.Bool("help", false, "Show help")
 
@@ -32,10 +34,11 @@ func parseCMDline() Cmdline {
 		Key:      *keyPtr,
 		Help:     *helpPtr,
 		VerRq:    *VerRq,
-		VerJ:    *VerJ,
+		VerJ:     *VerJ,
 		Enc:      *enccfgPtr,
 		GenKeys:  *genkeysPtr,
 		CalFetch: *calFetc1stPtr,
+		DebLev:   *Dl,
 	}
 	return config
 }
