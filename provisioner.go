@@ -76,6 +76,7 @@ func main() {
 
 	serialToSSH := make(chan byte)
 	sshToSerial := make(chan byte)
+	ssh_init()
 	go SSHHandler(config.SSHSerTun, "tunnel", serialToSSH, sshToSerial, false)
 	go SerialHandler(config.SerialConfig.Port, config.SerialConfig.BaudRate, serialToSSH, sshToSerial)
 

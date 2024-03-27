@@ -18,9 +18,19 @@ type DefAuth struct {
 	state		bool
 }
 
+
 var GenAuth []DefAuth
 
 var sshChannels = make(map[string] *ssh.Channel)
+
+var sshConns map[string]int
+
+func ssh_init() {
+	sshConns = make(map[string]int)
+	sshConns["montor"]=0
+	sshConns["tunnel"]=0
+}
+
 
 func checkPerm(token string, service string) bool {
 	for _, i := range GenAuth {
@@ -32,6 +42,7 @@ func checkPerm(token string, service string) bool {
 }
 
 func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byte, def_aut bool) {
+	debugPrint(log.Printf, levelDebug, "request descr=%s connected=%d", desc, sshConns[desc])
 	authorizedKeysBytes, err := os.ReadFile(sshcfg.Authorized_keys)
 	if err != nil {
 		debugPrint(log.Printf, levelPanic, "Failed to load authorized_keys, err: %s", err.Error())
@@ -54,20 +65,25 @@ func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byt
 		authorizedKeysBytes = rest
 	}
 	config := &ssh.ServerConfig{
-		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-			if authorizedKeysMap[string(pubKey.Marshal())] {
-				debugPrint(log.Printf, levelDebug, "Authorized user attempt check permissions")
-				if checkPerm(hex.EncodeToString(pubKey.Marshal()), desc) {
-					return &ssh.Permissions{
-						Extensions: map[string]string{
-							"pubkey-fp": ssh.FingerprintSHA256(pubKey),
-						},
-					}, nil
-				} else {
-				return nil, fmt.Errorf("unauthorized user")
+		PublicKeyCallback: func (c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
+			if sshConns[desc]<1 {
+				sshConns[desc]++
+				if authorizedKeysMap[string(pubKey.Marshal())] {
+					debugPrint(log.Printf, levelDebug, "Authorized user attempt check permissions")
+					if checkPerm(hex.EncodeToString(pubKey.Marshal()), desc) {
+						return &ssh.Permissions{
+							Extensions: map[string]string{
+								"pubkey-fp": ssh.FingerprintSHA256(pubKey),
+							},
+						}, nil
+					} else {
+					return nil, fmt.Errorf("unauthorized user")
+					}
 				}
+				return nil, fmt.Errorf("unknown public key for %q", c.User())
+			} else {
+				return nil, fmt.Errorf("Too many users")
 			}
-			return nil, fmt.Errorf("unknown public key for %q", c.User())
 		},
 	}
 
@@ -100,9 +116,17 @@ func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byt
 	}
 }
 
+func checkBrokenConnections(conn ssh.Conn, desc string){
+	conn.Wait()
+	sshConns[desc]--
+	debugPrint(log.Printf, levelInfo, "Closing broken connection")
+	conn.Close()
+}
+
 func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- byte, sshOut <-chan byte, desc string) {
 	defer conn.Close()
 
+	debugPrint(log.Printf, levelDebug, "request descr=%s, connected=%d", desc, sshConns[desc])
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		debugPrint(log.Printf, levelError, "failed to establish SSH connection: %s", err.Error())
@@ -110,6 +134,7 @@ func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- b
 	}
 	defer sshConn.Close()
 
+	go checkBrokenConnections(sshConn, desc)
 	go ssh.DiscardRequests(reqs)
 
 	for newChannel := range chans {
