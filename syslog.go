@@ -11,7 +11,7 @@ func syslog_service(fn string, port string) {
 	handler := syslog.NewChannelHandler(channel)
 
 	server := syslog.NewServer()
-	server.SetFormat(syslog.RFC5424)
+	server.SetFormat(syslog.Automatic)
 	server.SetHandler(handler)
 	server.ListenUDP("0.0.0.0:"+port)
 	server.Boot()
@@ -25,7 +25,8 @@ func syslog_service(fn string, port string) {
 
 	go func(channel syslog.LogPartsChannel) {
 		for logParts := range channel {
-			logger.Println(logParts)
+			debugPrint(log.Printf, levelDebug, "Received: %s", logParts["content"])
+			logger.Printf("%s %d %d %s %s %s", logParts["timestamp"], logParts["severity"], logParts["priority"], logParts["hostname"], logParts["client"], logParts["content"])
 		}
 	}(channel)
 
