@@ -144,6 +144,13 @@ func main() {
 	}()
 
 
+	_, ok = config["pr.reboot"]
+        if ok {
+		resetSystem(msgs, config)
+                }
+
+
+
 /*	devices, err := listBlockDevices()
 	if err != nil {
 //		msgs <- logbuf.LogSprintf(logbuf.LevelWarning, "Error:", err)

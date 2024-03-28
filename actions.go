@@ -120,11 +120,16 @@ func resetSystem(msgs chan string, config map[string]string) error {
 //	if err := syscall.Reboot(LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART, nil); err != nil {
 //		return err
 //	}
+	var arg1 string
+	var ok bool
 
         msgs <- logbuf.LogSprintf(logbuf.LevelInfo, "check arguments")
-        arg1, ok := config["pr.actionArg1"]
+        arg1, ok = config["pr.actionArg1"]
         if !ok {
-                return errors.New("reboot no Arg1: Arg1=Secs to reboot")
+		arg1, ok = config["pr.reboot"]
+		if !ok {
+	                return errors.New("reboot no time specified")
+		}
         }
 
 	n , err := strconv.Atoi(arg1)
