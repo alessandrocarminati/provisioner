@@ -20,23 +20,18 @@ var (
 	LevelDebug	= DebugLevels{5, "Debug  "}
 )
 
-var DebugLevel int=3
-
 func LogSprintf(level DebugLevels,  format string, a ...interface{}) string {
 	var s string
 
-        if level.Value<=DebugLevel {
-                pc, _, _, ok := runtime.Caller(1)
-                s = "?"
-                if ok {
-                        fn := runtime.FuncForPC(pc)
-                        if fn != nil {
-                                s = fn.Name()
-                        }
-                }
-                newformat := fmt.Sprintf("(%s)[" + s + "] ", level.Label) + format
-                return fmt.Sprintf(newformat,  a...)
-        }
-	return ""
+	pc, _, _, ok := runtime.Caller(1)
+	s = "?"
+	if ok {
+		fn := runtime.FuncForPC(pc)
+		if fn != nil {
+			s = fn.Name()
+		}
+	}
+	newformat := fmt.Sprintf("<%d>(%s)[" + s + "] ", level.Value, level.Label) + format
+	return fmt.Sprintf(newformat,  a...)
 }
 

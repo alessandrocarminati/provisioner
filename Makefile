@@ -2,7 +2,7 @@
 all: bin/rootfs.cpio
 
 bin/init: goinit.go
-	GOOS=linux GOARCH=arm64 go build -o bin/init goinit.go
+	GOOS=linux GOARCH=arm64 go build -o bin/init
 #	aarch64-linux-gnu-gcc -static -o bin/init init.c
 #	aarch64-linux-gnu-as init.s  -o init.o
 #	aarch64-linux-gnu-ld -o bin/init init.o
@@ -18,6 +18,6 @@ rootfs/init: bin/init
 	cp bin/init rootfs/init
 
 clean:
-	rm -rf bin/*
-	rm -rf rootfs/*
+	rm -rf bin/init  bin/rootfs.cpio
+	rm -rf rootfs/dev  rootfs/init
 
