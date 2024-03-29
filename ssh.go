@@ -186,7 +186,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-cha
 				return
 			}
 			if n>0 {
-				debugPrint(log.Printf, levelDebug, "read %d bytes = '%s'", len(buf), string(buf))
+				debugPrint(log.Printf, levelDebug, "read %d bytes = '%s'", len(buf), string(buf[:n]))
 				for i:=0;i<n;i++ {
 					sshIn <- buf[i]
 				}
