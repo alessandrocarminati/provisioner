@@ -74,17 +74,21 @@ func main() {
 	go TFTPHandler(config.TFTPDirectory)
 	go HTTPHandler(config.TFTPDirectory, config.HTTPPort)
 
-	serialToSSH := make(chan byte)
-	sshToSerial := make(chan byte)
 	ssh_init()
-	go SSHHandler(config.SSHSerTun, "tunnel", serialToSSH, sshToSerial, false)
-	go SerialHandler(config.SerialConfig.Port, config.SerialConfig.BaudRate, serialToSSH, sshToSerial)
+	serialRouter := NewRouter(10)
+	serialRouter.Router()
+	serialRouter.AttachAt(0, SrcMachine)
+
+	go SSHHandler(config.SSHSerTun, "tunnel", serialRouter, false)
+	go SerialHandler(config.SerialConfig.Port, config.SerialConfig.BaudRate, serialRouter.In[0], serialRouter.Out[0])
 
 
-	monitorToSSH := make(chan byte)
-	sshToMonitor := make(chan byte)
-	go SSHHandler(config.SSHMon, "monitor", monitorToSSH, sshToMonitor, true)
-	go Monitor(monitorToSSH, sshToMonitor, config.Monitor)
+	monitorRouter := NewRouter(10)
+	monitorRouter.Router()
+	monitorRouter.AttachAt(0, SrcMachine)
+
+	go SSHHandler(config.SSHMon, "monitor", monitorRouter, true)
+	go Monitor(monitorRouter.In[0], monitorRouter.Out[0], config.Monitor)
 	go calendarPoller()
 	select {}
 }

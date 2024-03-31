@@ -41,7 +41,7 @@ func checkPerm(token string, service string) bool {
 	return false
 }
 
-func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byte, def_aut bool) {
+func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 	debugPrint(log.Printf, levelDebug, "request descr=%s connected=%d", desc, sshConns[desc])
 	authorizedKeysBytes, err := os.ReadFile(sshcfg.Authorized_keys)
 	if err != nil {
@@ -66,7 +66,7 @@ func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byt
 	}
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func (c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-			if sshConns[desc]<1 {
+//			if sshConns[desc]<1 {
 				sshConns[desc]++
 				if authorizedKeysMap[string(pubKey.Marshal())] {
 					debugPrint(log.Printf, levelDebug, "Authorized user attempt check permissions")
@@ -81,9 +81,9 @@ func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byt
 					}
 				}
 				return nil, fmt.Errorf("unknown public key for %q", c.User())
-			} else {
-				return nil, fmt.Errorf("Too many users")
-			}
+//			} else {
+//				return nil, fmt.Errorf("Too many users")
+//			}
 		},
 	}
 
@@ -112,18 +112,19 @@ func SSHHandler(sshcfg SSHCFG, desc string, sshIn chan<- byte, sshOut <-chan byt
 			debugPrint(log.Printf, levelPanic, "failed to accept incoming connection: %s", err.Error())
 		}
 
-		go handleSSHConnection(conn, config, sshIn, sshOut, desc)
+		go handleSSHConnection(conn, config, r, desc)
 	}
 }
 
-func checkBrokenConnections(conn ssh.Conn, desc string){
+func checkBrokenConnections(conn ssh.Conn, r *Router, n int,desc string){
 	conn.Wait()
 	sshConns[desc]--
-	debugPrint(log.Printf, levelInfo, "Closing broken connection")
+	r.DetachAt(n)
+	debugPrint(log.Printf, levelInfo, "Closing broken connection, detach %d",n)
 	conn.Close()
 }
 
-func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- byte, sshOut <-chan byte, desc string) {
+func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, r *Router, desc string) {
 	defer conn.Close()
 
 	debugPrint(log.Printf, levelDebug, "request descr=%s, connected=%d", desc, sshConns[desc])
@@ -134,15 +135,41 @@ func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, sshIn chan<- b
 	}
 	defer sshConn.Close()
 
+	n, err := r.GetFreePos()
+	if err == nil {
+		debugPrint(log.Printf, levelDebug, "The new channels in router for this connection are at %d", n)
+		r.AttachAt(n, SrcHuman)
+		go checkBrokenConnections(sshConn, r, n, desc)
+		go ssh.DiscardRequests(reqs)
+
+		for newChannel := range chans {
+				go handleSSHChannel(newChannel, r, n, desc)
+		}
+	} else {
+		debugPrint(log.Printf, levelWarning, "Failed to get new channels in router")
+	}
+
+
+/*
 	go checkBrokenConnections(sshConn, desc)
 	go ssh.DiscardRequests(reqs)
 
 	for newChannel := range chans {
-		go handleSSHChannel(newChannel, sshIn, sshOut, desc)
+		n, err := r.GetFreePos()
+		if err == nil {
+			debugPrint(log.Printf, levelDebug, "The new channels in router for this connection are at %d", n)
+			r.AttachAt(n, SrcHuman)
+			go handleSSHChannel(newChannel, r, n, desc)
+		} else {
+			debugPrint(log.Printf, levelWarning, "Failed to get new channels in router", desc, sshConns[desc])
+		}
 	}
+
+*/
+
 }
 
-func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-chan byte, desc string) {
+func handleSSHChannel(newChannel ssh.NewChannel, r *Router, n int, desc string) {
 	if newChannel.ChannelType() != "session" {
 		newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 		return
@@ -162,7 +189,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-cha
 	go func() {
 		defer wg.Done()
 		for {
-			data := <-sshOut
+			data := <- r.In[n] //sshOut
 			_, err := channel.Write([]byte{data})
 			if err != nil {
 				if err != io.EOF {
@@ -188,7 +215,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, sshIn chan<- byte, sshOut <-cha
 			if n>0 {
 				debugPrint(log.Printf, levelDebug, "read %d bytes = '%s'", len(buf), string(buf[:n]))
 				for i:=0;i<n;i++ {
-					sshIn <- buf[i]
+					r.Out[n] <- buf[i] //sshIn
 				}
 			}
 		}
