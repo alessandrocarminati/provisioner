@@ -17,6 +17,7 @@ var (
 	levelNotice	= DebugLevels{3, "Notice "}
 	levelInfo	= DebugLevels{4, "Info   "}
 	levelDebug	= DebugLevels{5, "Debug  "}
+	levelCrazy	= DebugLevels{6, "Crazy  "}
 )
 
 var DebugLevel int
