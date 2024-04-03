@@ -4,6 +4,7 @@ import (
         "log"
         "fmt"
         "sort"
+	"strconv"
 )
 
 type CommandFunction func(input string) string
@@ -84,21 +85,57 @@ func command_init(){
 }
 
 func exit(input string) string {
+
 	debugPrint(log.Printf, levelInfo, "exit command requested")
-	if c, ok := sshChannels["monitor"]; ok {
+
+	ret :=""
+	if len(input) == 0 {
+		ret = "Available sessions:\r\n"
+		for i, item  := range sshChannelsMonitor {
+			if item != nil {
+				ret = ret +fmt.Sprintf(" %d", i)
+			}
+		}
+		return ret + "\r\n"
+	}
+	ret = "invalid argument\r\n"
+	n, err := strconv.Atoi(input)
+	if err != nil {
+		return ret
+	}
+	c:= sshChannelsMonitor[n]
+	if c != nil {
 		(*c).Close()
+		sshChannelsMonitor[n] = nil
 		return "\r\n"
 	}
-	return "can't exit\r\n"
+	return ret
 }
 func tterm(input string) string {
 	debugPrint(log.Printf, levelInfo, "tterm command requested")
-	out:= "can't exit"
-	if c, ok := sshChannels["tunnel"]; ok {
-		(*c).Close()
-		out="done!"
+
+	ret :=""
+	if len(input) == 0 {
+		ret = "Available sessions:\r\n"
+		for i, item  := range sshChannelsSerial {
+			if item != nil {
+				ret = ret +fmt.Sprintf(" %d", i)
+			}
+		}
+		return ret + "\r\n"
 	}
-	return out + "\r\n"
+	ret = "invalid argument\r\n"
+	n, err := strconv.Atoi(input)
+	if err != nil {
+		return ret
+	}
+	c:= sshChannelsSerial[n]
+	if c != nil {
+		(*c).Close()
+		sshChannelsSerial[n]=nil
+		return "\r\n"
+	}
+	return ret
 }
 func listUser(input string) string {
 	var out string

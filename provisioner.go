@@ -74,7 +74,7 @@ func main() {
 	go TFTPHandler(config.TFTPDirectory)
 	go HTTPHandler(config.TFTPDirectory, config.HTTPPort)
 
-	ssh_init()
+	ssh_init(10, 10)
 	serialRouter := NewRouter(10)
 	serialRouter.Router()
 	serialRouter.AttachAt(0, SrcMachine)

@@ -21,14 +21,12 @@ type DefAuth struct {
 
 var GenAuth []DefAuth
 
-var sshChannels = make(map[string] *ssh.Channel)
+var sshChannelsMonitor []*ssh.Channel
+var sshChannelsSerial []*ssh.Channel
 
-var sshConns map[string]int
-
-func ssh_init() {
-	sshConns = make(map[string]int)
-	sshConns["montor"]=0
-	sshConns["tunnel"]=0
+func ssh_init(nMonitor, nSerial int) {
+	sshChannelsMonitor = make([]*ssh.Channel, nMonitor)
+	sshChannelsSerial = make([]*ssh.Channel, nSerial)
 }
 
 
@@ -42,7 +40,7 @@ func checkPerm(token string, service string) bool {
 }
 
 func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
-	debugPrint(log.Printf, levelDebug, "request descr=%s connected=%d", desc, sshConns[desc])
+	debugPrint(log.Printf, levelDebug, "request descr=%s", desc)
 	authorizedKeysBytes, err := os.ReadFile(sshcfg.Authorized_keys)
 	if err != nil {
 		debugPrint(log.Printf, levelPanic, "Failed to load authorized_keys, err: %s", err.Error())
@@ -66,7 +64,6 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 	}
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func (c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-				sshConns[desc]++
 				if authorizedKeysMap[string(pubKey.Marshal())] {
 					debugPrint(log.Printf, levelDebug, "Authorized user attempt check permissions")
 					if checkPerm(hex.EncodeToString(pubKey.Marshal()), desc) {
@@ -114,7 +111,6 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 
 func checkBrokenConnections(conn ssh.Conn, r *Router, n int,desc string){
 	conn.Wait()
-	sshConns[desc]--
 	r.DetachAt(n)
 	debugPrint(log.Printf, levelInfo, "Closing broken connection, detach %d",n)
 	conn.Close()
@@ -123,7 +119,7 @@ func checkBrokenConnections(conn ssh.Conn, r *Router, n int,desc string){
 func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, r *Router, desc string) {
 	defer conn.Close()
 
-	debugPrint(log.Printf, levelDebug, "request descr=%s, connected=%d", desc, sshConns[desc])
+	debugPrint(log.Printf, levelDebug, "request descr=%s", desc)
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
 		debugPrint(log.Printf, levelError, "failed to establish SSH connection: %s", err.Error())
@@ -157,7 +153,11 @@ func handleSSHChannel(newChannel ssh.NewChannel, r *Router, nchan int, desc stri
 		debugPrint(log.Printf, levelError, "failed to accept channel: %s", err.Error())
 		return
 	}
-	sshChannels[desc]=&channel
+	if desc == "monitor" {
+		sshChannelsMonitor[nchan]=&channel
+	} else {
+		sshChannelsSerial[nchan]=&channel
+	}
 	defer channel.Close()
 
 	var wg sync.WaitGroup
