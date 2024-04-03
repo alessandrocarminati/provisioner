@@ -66,7 +66,6 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 	}
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func (c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-//			if sshConns[desc]<1 {
 				sshConns[desc]++
 				if authorizedKeysMap[string(pubKey.Marshal())] {
 					debugPrint(log.Printf, levelDebug, "Authorized user attempt check permissions")
@@ -81,9 +80,6 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 					}
 				}
 				return nil, fmt.Errorf("unknown public key for %q", c.User())
-//			} else {
-//				return nil, fmt.Errorf("Too many users")
-//			}
 		},
 	}
 
@@ -148,25 +144,6 @@ func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, r *Router, des
 	} else {
 		debugPrint(log.Printf, levelWarning, "Failed to get new channels in router")
 	}
-
-
-/*
-	go checkBrokenConnections(sshConn, desc)
-	go ssh.DiscardRequests(reqs)
-
-	for newChannel := range chans {
-		n, err := r.GetFreePos()
-		if err == nil {
-			debugPrint(log.Printf, levelDebug, "The new channels in router for this connection are at %d", n)
-			r.AttachAt(n, SrcHuman)
-			go handleSSHChannel(newChannel, r, n, desc)
-		} else {
-			debugPrint(log.Printf, levelWarning, "Failed to get new channels in router", desc, sshConns[desc])
-		}
-	}
-
-*/
-
 }
 
 func handleSSHChannel(newChannel ssh.NewChannel, r *Router, nchan int, desc string) {
