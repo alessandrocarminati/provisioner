@@ -169,7 +169,7 @@ func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, r *Router, des
 
 }
 
-func handleSSHChannel(newChannel ssh.NewChannel, r *Router, n int, desc string) {
+func handleSSHChannel(newChannel ssh.NewChannel, r *Router, nchan int, desc string) {
 	if newChannel.ChannelType() != "session" {
 		newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
 		return
@@ -189,7 +189,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, r *Router, n int, desc string) 
 	go func() {
 		defer wg.Done()
 		for {
-			data := <- r.In[n] //sshOut
+			data := <- r.In[nchan] //sshOut
 			_, err := channel.Write([]byte{data})
 			if err != nil {
 				if err != io.EOF {
@@ -215,7 +215,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, r *Router, n int, desc string) 
 			if n>0 {
 				debugPrint(log.Printf, levelDebug, "read %d bytes = '%s'", len(buf), string(buf[:n]))
 				for i:=0;i<n;i++ {
-					r.Out[n] <- buf[i] //sshIn
+					r.Out[nchan] <- buf[i] //sshIn
 				}
 			}
 		}
