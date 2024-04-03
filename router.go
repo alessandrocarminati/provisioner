@@ -20,6 +20,7 @@ type Router struct {
 	Out      []chan byte
 	SrcType  []SType
 	mu       sync.Mutex
+	LEnter   int
 }
 
 
@@ -53,6 +54,15 @@ func (r *Router)AttachAt(pos int, stype SType) error{
 	}
 	r.SrcType[pos]=stype
 	return nil
+}
+
+func (r *Router)indexOfIn(targetChannel chan byte) int {
+    for i, ch := range r.In {
+        if ch == targetChannel {
+            return i
+        }
+    }
+    return -1
 }
 
 func (r *Router)DetachAt(pos int) error{
@@ -103,6 +113,9 @@ func (r *Router)Router() {
 							panic("stocazzo r")
 						}
 						if ch==SrcHuman {
+							if data == 10 {
+								r.LEnter=i
+							}
 							r.Unicast(data)
 							continue
 						}
