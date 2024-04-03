@@ -87,6 +87,7 @@ func exit(input string) string {
 	debugPrint(log.Printf, levelInfo, "exit command requested")
 	if c, ok := sshChannels["monitor"]; ok {
 		(*c).Close()
+		return "\r\n"
 	}
 	return "can't exit\r\n"
 }
