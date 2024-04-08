@@ -79,8 +79,40 @@ func command_init(monitor *MonCtx, fences map[string] FenceFuncs) (*CmdCtx) {
 		HelpText: "terminate serial tunnel connection",
 		Handler: c.tterm,
 	}
+	c.commands["exec_assm"]=Command{
+		Name: "exec_assm",
+		HelpText: "Load and executes the specified assm script",
+		Handler: c.exec_assm,
+	}
 	return c
 }
+
+func (c *CmdCtx) exec_assm(input string) string {
+	n, err := (*(*c).monitor).router.GetFreePos()
+	if err != nil {
+		return fmt.Sprintf("no available channels: %s\r\n", err.Error())
+	}
+	(*(*c).monitor).router.AttachAt(n, SrcHuman)
+	if !strings.HasSuffix(input, ".assm") {
+		return "unknown script type\r\n"
+	}
+	ex, err := einit(input,  (*(*c).monitor).router.In[n], (*(*c).monitor).router.Out[n])
+	if err != nil {
+		(*(*c).monitor).router.DetachAt(n)
+		return fmt.Sprintf("Syntax error: %s\r\n", err.Error())
+	}
+	go func(c *CmdCtx){
+		defer (*(*c).monitor).router.DetachAt(n)
+		err = ex.Execute(500)
+		if err != nil {
+			debugPrint(log.Printf, levelError, err.Error())
+			return
+		}
+		debugPrint(log.Printf, levelWarning, "execution terminated")
+	}(c)
+	return "script is processing text from serial\r\n"
+}
+
 
 func (c *CmdCtx) exit(input string) string {
 

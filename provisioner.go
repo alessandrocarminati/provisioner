@@ -80,16 +80,6 @@ func main() {
 	serialRouter.AttachAt(0, SrcMachine)
 
 	go SerialHandler(config.SerialConfig.Port, config.SerialConfig.BaudRate, serialRouter.In[0], serialRouter.Out[0])
-	serialRouter.AttachAt(1, SrcMachine)
-	ex, err := einit("simple.assm",  serialRouter.In[1], serialRouter.Out[1])
-	go func(){
-		err = ex.Execute(500)
-		if err != nil {
-			debugPrint(log.Printf, levelError, err.Error())
-		}
-	        debugPrint(log.Printf, levelWarning, "execution terminated")
-	}()
-
 	go SSHHandler(config.SSHSerTun, "tunnel", serialRouter, false)
 
 

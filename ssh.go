@@ -52,7 +52,7 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 		if err != nil {
 			debugPrint(log.Printf, levelPanic, "Only one line per user, no extra lines: %s", err.Error())
 		}
-		debugPrint(log.Printf, levelDebug, "add key for %s -> %s", comment, hex.EncodeToString(pubKey.Marshal()))
+		debugPrint(log.Printf, levelDebug, "add key for %s", comment) //hex.EncodeToString(pubKey.Marshal())
 		GenAuth = append(GenAuth, DefAuth{
 			service: desc,
 			name: comment,
