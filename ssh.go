@@ -190,7 +190,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, r *Router, nchan int, desc stri
 				return
 			}
 			if n>0 {
-				debugPrint(log.Printf, levelDebug, "read %d bytes = '%s'", len(buf), string(buf[:n]))
+				debugPrint(log.Printf, levelCrazy, "read %d bytes = '%s'", len(buf), string(buf[:n]))
 				for i:=0;i<n;i++ {
 					r.Out[nchan] <- buf[i] //sshIn
 				}
