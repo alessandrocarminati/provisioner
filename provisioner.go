@@ -90,6 +90,9 @@ func main() {
 	m :=MonitorInit(monitorRouter.In[0], monitorRouter.Out[0], config.Monitor, serialRouter,  "> ", 10)
 	go m.doMonitor()
 	go SSHHandler(config.SSHMon, "monitor", monitorRouter, true)
-	go calendarPoller()
+	if config.Calendar.Enable {
+		debugPrint(log.Printf, levelInfo, "Calendar activated\n")
+		go calendarPoller(config.Calendar.Credfn)
+	}
 	select {}
 }

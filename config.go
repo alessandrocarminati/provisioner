@@ -9,6 +9,10 @@ type SSHCFG struct {
                 IdentitFn       string          `json:"identity_fn"`
                 Authorized_keys string          `json:"authorized_keys"`
         }
+type CalendarConfig struct {
+		Enable         bool             `json:"enable"`
+		Credfn         string           `json:"credfn"`
+}
 
 type Config struct {
 	SyslogPort	string			`json:"syslog_port"`
@@ -22,6 +26,7 @@ type Config struct {
 		BaudRate	int		`json:"baud_rate"`
 	}					`json:"serial_config"`
         Monitor		map[string] string	`json:"monitor"`
+	Calendar        CalendarConfig          `json:"calendar"`
 }
 
 func fetch_config(fn string, key string) (Config, error) {

@@ -101,9 +101,9 @@ func valid(s string, users []DefAuth) bool {
 	return false
 }
 
-func checkCalendar(){
+func checkCalendar(credFn string){
 	debugPrint(log.Printf, levelNotice, "checking calendar" )
-	next, err := NextReservation("cred.json", "primary", GenAuth)
+	next, err := NextReservation(credFn, "primary", GenAuth)
 	if err == nil {
 		debugPrint(log.Printf, levelNotice, "checkCalendar: desc: %s", next.RName)
 
@@ -131,13 +131,13 @@ func checkCalendar(){
 		debugPrint(log.Printf, levelNotice, "next event: none")
 	}
 }
-func calendarPoller(){
+func calendarPoller(credFn string){
 	ticker := time.Tick(1 * time.Minute)
 
 	for {
 		select {
 			case <-ticker:
-				checkCalendar()
+				checkCalendar(credFn)
 		}
 	}
 }
