@@ -48,6 +48,7 @@ func (r *Router)GetFreePos() (int, error){
 }
 func (r *Router)AttachAt(pos int, stype SType) error{
 	r.mu.Lock()
+	debugPrint(log.Printf, levelDebug, "Router channel %d attached type=%d\n", pos, stype)
 	defer r.mu.Unlock()
 	if r.SrcType[pos] != SrcNone {
 		return errors.New("Channel is not available")
@@ -67,6 +68,7 @@ func (r *Router)indexOfIn(targetChannel chan byte) int {
 
 func (r *Router)DetachAt(pos int) error{
 	r.mu.Lock()
+	debugPrint(log.Printf, levelDebug, "Router channel %d detached\n", pos)
 	defer r.mu.Unlock()
 	if r.SrcType[pos]  == SrcNone {
 		return errors.New("Channel is already free")

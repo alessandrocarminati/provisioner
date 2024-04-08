@@ -88,6 +88,7 @@ func command_init(monitor *MonCtx, fences map[string] FenceFuncs) (*CmdCtx) {
 }
 
 func (c *CmdCtx) exec_assm(input string) string {
+	debugPrint(log.Printf, levelInfo, "script command requested")
 	n, err := (*(*c).monitor).router.GetFreePos()
 	if err != nil {
 		return fmt.Sprintf("no available channels: %s\r\n", err.Error())
