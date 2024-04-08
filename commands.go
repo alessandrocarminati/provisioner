@@ -5,9 +5,10 @@ import (
         "fmt"
         "sort"
 	"strconv"
+	"strings"
 )
 
-type CommandFunction func(input string) string
+type CommandFunction func(string) string
 type FenceFuncs func(string) error
 
 
@@ -17,74 +18,71 @@ type Command struct {
         Handler     CommandFunction
 }
 
-var commands  map[string] Command
-
-var fences map[string] FenceFuncs
-
-
-func command_init(){
-	var m Command
-
-	debugPrint(log.Printf, levelInfo, "Initialyzing monitor commands struct")
-	commands = make(map[string]Command, 20)
-
-	m=Command{
-		Name: "echo",
-		HelpText: "echoes back the argument",
-		Handler: echoCmd,
-	}
-	commands["echo"]=m
-	m=Command{
-		Name: "help",
-		HelpText: "this text",
-		Handler: help,
-	}
-	commands["help"]=m
-	m=Command{
-		Name: "?",
-		HelpText: "this text",
-		Handler: help,
-	}
-	commands["?"]=m
-	m=Command{
-		Name: "ton",
-		HelpText: "command PDU using snmp to turn on the board",
-		Handler: ton,
-	}
-	commands["ton"]=m
-	m=Command{
-		Name: "toff",
-		HelpText: "command PDU using snmp to turn off the board",
-		Handler: toff,
-	}
-	commands["toff"]=m
-	m=Command{
-		Name: "ulist",
-		HelpText: "list user state for tunnel",
-		Handler: listUser,
-	}
-	commands["ulist"]=m
-	m=Command{
-		Name: "enuser",
-		HelpText: "enable user for tunnel",
-		Handler: enuser,
-	}
-	commands["enuser"]=m
-	m=Command{
-		Name: "exit",
-		HelpText: "exit this shell",
-		Handler: exit,
-	}
-	commands["exit"]=m
-	m=Command{
-		Name: "tterm",
-		HelpText: "terminate serial tunnel connection",
-		Handler: tterm,
-	}
-	commands["tterm"]=m
+type CmdCtx struct {
+	monitor        *MonCtx
+	commands       map[string] Command
+	fences         map[string] FenceFuncs
 }
 
-func exit(input string) string {
+func command_init(monitor *MonCtx, fences map[string] FenceFuncs) (*CmdCtx) {
+
+	debugPrint(log.Printf, levelInfo, "Initialyzing monitor commands struct")
+	commands := make(map[string]Command, 20)
+	c := &CmdCtx{
+                monitor: monitor,
+                commands: commands,
+                fences: fences,
+        }
+
+	c.commands["echo"]=Command{
+		Name: "echo",
+		HelpText: "echoes back the argument",
+		Handler: c.echoCmd,
+	}
+	c.commands["help"]=Command{
+		Name: "help",
+		HelpText: "this text",
+		Handler: c.help,
+	}
+	c.commands["?"]=Command{
+		Name: "?",
+		HelpText: "this text",
+		Handler: c.help,
+	}
+	c.commands["ton"]=Command{
+		Name: "ton",
+		HelpText: "command PDU using snmp to turn on the board",
+		Handler: c.ton,
+	}
+	c.commands["toff"]=Command{
+		Name: "toff",
+		HelpText: "command PDU using snmp to turn off the board",
+		Handler: c.toff,
+	}
+	c.commands["ulist"]=Command{
+		Name: "ulist",
+		HelpText: "list user state for tunnel",
+		Handler: c.listUser,
+	}
+	c.commands["enuser"]=Command{
+		Name: "enuser",
+		HelpText: "enable user for tunnel",
+		Handler: c.enuser,
+	}
+	c.commands["exit"]=Command{
+		Name: "exit",
+		HelpText: "exit this shell",
+		Handler: c.exit,
+	}
+	c.commands["tterm"]=Command{
+		Name: "tterm",
+		HelpText: "terminate serial tunnel connection",
+		Handler: c.tterm,
+	}
+	return c
+}
+
+func (c *CmdCtx) exit(input string) string {
 
 	debugPrint(log.Printf, levelInfo, "exit command requested")
 
@@ -103,15 +101,15 @@ func exit(input string) string {
 	if err != nil {
 		return ret
 	}
-	c:= sshChannelsMonitor[n]
-	if c != nil {
-		(*c).Close()
+	chn := sshChannelsMonitor[n]
+	if chn != nil {
+		(*chn).Close()
 		sshChannelsMonitor[n] = nil
 		return "\r\n"
 	}
 	return ret
 }
-func tterm(input string) string {
+func (c *CmdCtx) tterm(input string) string {
 	debugPrint(log.Printf, levelInfo, "tterm command requested")
 
 	ret :=""
@@ -129,27 +127,27 @@ func tterm(input string) string {
 	if err != nil {
 		return ret
 	}
-	c:= sshChannelsSerial[n]
-	if c != nil {
-		(*c).Close()
+	chn := sshChannelsSerial[n]
+	if chn != nil {
+		(*chn).Close()
 		sshChannelsSerial[n]=nil
 		return "\r\n"
 	}
 	return ret
 }
-func listUser(input string) string {
+func (c *CmdCtx) listUser(input string) string {
 	var out string
 
 	debugPrint(log.Printf, levelInfo, "listUser command requested")
 	for _, item := range GenAuth {
 		if item.service == "tunnel" {
-			out = out + fmt.Sprintf("\t%s -> %t\n\r", item.name, item.state)
+			out = out + fmt.Sprintf("  %-40s %t\n\r", item.name + " ->", item.state)
 		}
 	}
 	return out
 }
 
-func enuser(input string) string {
+func (c *CmdCtx) enuser(input string) string {
 	out:="user not found!"
 	debugPrint(log.Printf, levelInfo, "enuser command requested")
 	if len(input) == 0 {
@@ -167,34 +165,34 @@ func enuser(input string) string {
         return out + "\r\n"
 }
 
-func help(input string) string{
+func (c *CmdCtx) help(input string) string{
 	out:=""
 	debugPrint(log.Printf, levelInfo, "help command requested")
-	list := make([]string, 0, len(commands))
+	list := make([]string, 0, len(c.commands))
 
-	for k := range commands {
+	for k := range c.commands {
 		list = append(list, k)
 	}
 	sort.Strings(list)
 
 	for _, item := range list {
-		out = out + fmt.Sprintf("\t%s:\t%s\n\r", commands[item].Name, commands[item].HelpText)
+		out = out + fmt.Sprintf("  %-20s %s\n\r", c.commands[item].Name+" :", c.commands[item].HelpText)
 	}
 	return out
 }
 
-func dummyCmd(input string) string{
+func (c *CmdCtx) dummyCmd(input string) string{
 	debugPrint(log.Printf, levelInfo, "dummy command requested")
 	return "Not Implemented Yet :("+ "\r\n"
 }
 
 
-func FenceSwitch(state string) string{
+func (c *CmdCtx) FenceSwitch(state string) string{
 	var res string
 
-	pdu_type, ok := monitorConfig["pdu_type"]
+	pdu_type, ok := (*(*c).monitor).monitorConfig["pdu_type"]
 	if ok {
-		err := fences[pdu_type](state)
+		err := c.fences[pdu_type](state)
 		if err != nil {
 			res=err.Error()
 			return res
@@ -205,17 +203,17 @@ func FenceSwitch(state string) string{
 }
 
 
-func ton(input string) string{
+func (c *CmdCtx) ton(input string) string{
 	debugPrint(log.Printf, levelInfo, "ton command requested")
-	return FenceSwitch("ON")
+	return c.FenceSwitch("ON")
 }
 
-func toff(input string) string{
+func (c *CmdCtx) toff(input string) string{
 	debugPrint(log.Printf, levelInfo, "toff command requested")
-	return FenceSwitch("OFF")
+	return c.FenceSwitch("OFF")
 }
 
-func echoCmd(input string) string{
+func (c *CmdCtx) echoCmd(input string) string{
 
 	debugPrint(log.Printf, levelInfo, "echo command requested")
 	log.Printf("echoCmd arg'%s'\n", input)

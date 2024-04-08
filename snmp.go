@@ -7,28 +7,28 @@ import (
 	"github.com/gosnmp/gosnmp"
 )
 
-func snmpSwitch(state string) error {
+func (c *CmdCtx) snmpSwitch(state string) error {
 	var val int
 	var err error
 
 	errstr := "SNMP Config error"
-	oid, ok := monitorConfig["snmp_pdu_ctrl_oid"]
+	oid, ok := (*(*c).monitor).monitorConfig["snmp_pdu_ctrl_oid"]
 	if ! ok {
 		return errors.New(errstr)
 	}
-	host, ok := monitorConfig["snmp_pdu_ctrl_host"]
+	host, ok := (*(*c).monitor).monitorConfig["snmp_pdu_ctrl_host"]
 	if ! ok {
 		return errors.New(errstr)
 	}
-	user, ok := monitorConfig["snmp_pdu_ctrl_user"]
+	user, ok := (*(*c).monitor).monitorConfig["snmp_pdu_ctrl_user"]
 	if ! ok {
 		return errors.New(errstr)
 	}
-	onValue, ok := monitorConfig["snmp_pdu_ctrl_on_val"]
+	onValue, ok := (*(*c).monitor).monitorConfig["snmp_pdu_ctrl_on_val"]
 	if ! ok {
 		return errors.New(errstr)
 	}
-	offValue, ok := monitorConfig["snmp_pdu_ctrl_off_val"]
+	offValue, ok := (*(*c).monitor).monitorConfig["snmp_pdu_ctrl_off_val"]
 	if ! ok {
 		return errors.New(errstr)
 	}
@@ -41,14 +41,14 @@ func snmpSwitch(state string) error {
 		if err != nil {
 			return errors.New(errstr)
 		}
-		err := snmpSetv3unsec(oid, val, host, user)
+		err := c.snmpSetv3unsec(oid, val, host, user)
 		return err
 	}
 	return errors.New("Unknown state")
 }
 
 
-func snmpSetv2(oid string, value interface{}, target string, community string) error {
+func (c *CmdCtx) snmpSetv2(oid string, value interface{}, target string, community string) error {
 	params := &gosnmp.GoSNMP{
 		Target:    target,
 		Port:      161,
@@ -76,7 +76,7 @@ func snmpSetv2(oid string, value interface{}, target string, community string) e
 
 	return nil
 }
-func snmpSetv3unsec(oid string, value interface{}, target string, username string) error {
+func (c *CmdCtx) snmpSetv3unsec(oid string, value interface{}, target string, username string) error {
 	params := &gosnmp.GoSNMP{
 		Target:          target,
 		Port:            161,

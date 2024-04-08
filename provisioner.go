@@ -97,7 +97,8 @@ func main() {
 	monitorRouter.Router()
 	monitorRouter.AttachAt(0, SrcMachine)
 
-	go Monitor(monitorRouter.In[0], monitorRouter.Out[0], config.Monitor)
+	m :=MonitorInit(monitorRouter.In[0], monitorRouter.Out[0], config.Monitor, serialRouter,  "> ", 10)
+	go m.doMonitor()
 	go SSHHandler(config.SSHMon, "monitor", monitorRouter, true)
 	go calendarPoller()
 	select {}

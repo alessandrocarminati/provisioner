@@ -12,20 +12,20 @@ import (
 	"net/http/httputil"
 )
 
-func beakerSwitch(state string)error {
+func (c *CmdCtx) beakerSwitch(state string)error {
 	var ignoressl bool
 
 	errstr := "Config error\r\n"
 	debugPrint(log.Printf, levelDebug, "fetching beaker data")
-	username,  ok := monitorConfig["beaker_username"]
+	username,  ok := (*(*c).monitor).monitorConfig["beaker_username"]
 	if ! ok {
 		return errors.New(errstr)
 	}
-	password,  ok := monitorConfig["beaker_password"]
+	password,  ok := (*(*c).monitor).monitorConfig["beaker_password"]
 	if ! ok {
 		return errors.New(errstr)
 	}
-        ignoresslstr,  ok := monitorConfig["beaker_ignoressl"]
+        ignoresslstr,  ok := (*(*c).monitor).monitorConfig["beaker_ignoressl"]
 	if ! ok {
 		return errors.New(errstr)
 	}
@@ -41,12 +41,12 @@ func beakerSwitch(state string)error {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: ignoressl},
 	}
-	baseurl,  ok := monitorConfig["beaker_url"]
+	baseurl,  ok := (*(*c).monitor).monitorConfig["beaker_url"]
 	if ! ok {
 		return errors.New(errstr)
 	}
 
-	device,  ok := monitorConfig["beaker_device"]
+	device,  ok := (*(*c).monitor).monitorConfig["beaker_device"]
 	if ! ok {
 		return errors.New(errstr)
 	}
