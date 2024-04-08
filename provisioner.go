@@ -97,28 +97,32 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//check beaker username
-	_, ok := config.Monitor["beaker_username"]
-	if !ok {
-		fmt.Println("Beaker userid is not in config, please enter it manually")
-		s, err := readUserid()
-		if err != nil {
-			fmt.Printf("Error reading beaker Userid: %s\n", err.Error())
-			return
-		}
-		config.Monitor["beaker_username"] = s
-	}
 
-	//check beaker password
-	_, ok = config.Monitor["beaker_password"]
-	if !ok {
-		fmt.Println("Beaker password is not in config, please enter it manually")
-		s, err := readPassword()
-		if err != nil {
-			fmt.Printf("Error reading beaker password: %s\n", err.Error())
-			return
+	value, ok := config.Monitor["pdu_type"]
+	if ok && (value=="beaker") {
+		//check beaker username
+		_, ok = config.Monitor["beaker_username"]
+		if !ok {
+			fmt.Println("Beaker userid is not in config, please enter it manually")
+			s, err := readUserid()
+			if err != nil {
+				fmt.Printf("Error reading beaker Userid: %s\n", err.Error())
+				return
+			}
+			config.Monitor["beaker_username"] = s
 		}
-		config.Monitor["beaker_password"] = s
+
+		//check beaker password
+		_, ok = config.Monitor["beaker_password"]
+		if !ok {
+			fmt.Println("Beaker password is not in config, please enter it manually")
+			s, err := readPassword()
+			if err != nil {
+				fmt.Printf("Error reading beaker password: %s\n", err.Error())
+				return
+			}
+			config.Monitor["beaker_password"] = s
+		}
 	}
 
 	debugPrint(log.Printf, levelWarning, "Provisioner Ver. %s.%s (%s) %s\n", Version, Build, Hash, Dirty)
