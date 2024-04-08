@@ -51,7 +51,7 @@ func MonitorInit(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[st
 		router:         r,
 	}
 	m.HandleCharInit()
-	debugPrint(log.Printf, levelDebug, "Created object MonCtx = %+v", m)
+	debugPrint(log.Printf, levelCrazy, "Created object MonCtx = %+v", m)
 	cmdctx.monitor = &m
 	return &m
 }
@@ -70,12 +70,12 @@ func (m *MonCtx) doMonitor() {
 }
 
 func (m *MonCtx) ChEnter(b byte, line *[]byte) []byte{
-	debugPrint(log.Printf, levelDebug, "ChEnter %x '%s'\n", b,string(*line))
+	debugPrint(log.Printf, levelCrazy, "ChEnter %x '%s'\n", b,string(*line))
 	out := "\n\r"
 	cmd := strings.Split(string(*line), " ")
 	key := cmd[0]
 	args := strings.Join(cmd[1:]," ")
-	debugPrint(log.Printf, levelDebug, "key=%s args='%s'", key, args)
+	debugPrint(log.Printf, levelCrazy, "key=%s args='%s'", key, args)
 	if key!="" {
 		if _, ok := m.commands.commands[key]; ok {
 			out = out + m.commands.commands[key].Handler(args)
@@ -89,7 +89,7 @@ func (m *MonCtx) ChEnter(b byte, line *[]byte) []byte{
 }
 
 func (m *MonCtx) ChNormal(b byte, line *[]byte) []byte{
-	debugPrint(log.Printf, levelDebug, "ChNormal %x '%s'\n", b,string(*line))
+	debugPrint(log.Printf, levelCrazy, "ChNormal %x '%s'\n", b,string(*line))
 
 	out := []byte{b}
 	*line = append(*line,b)
@@ -112,7 +112,7 @@ func (m *MonCtx) ChNormal(b byte, line *[]byte) []byte{
 func (m *MonCtx) ChBackspace(b byte, line *[]byte) []byte{
 	var ret []byte
 
-	debugPrint(log.Printf, levelDebug, "ChBackspace %x '%s'\n", b,string(*line))
+	debugPrint(log.Printf, levelCrazy, "ChBackspace %x '%s'\n", b,string(*line))
 	oldLine := *line
 	if len(oldLine) <= 0 {
 		ret = nil
@@ -125,12 +125,12 @@ func (m *MonCtx) ChBackspace(b byte, line *[]byte) []byte{
 }
 
 func (m *MonCtx) ChDiscard(b byte, line *[]byte) []byte{
-	debugPrint(log.Printf, levelDebug, "ChDiscard %x '%s'\n", b,string(*line))
+	debugPrint(log.Printf, levelWarning, "ChDiscard %x '%s'\n", b,string(*line))
         return nil
 }
 
 func (m *MonCtx) ChEscape(b byte, line *[]byte) []byte{
-        debugPrint(log.Printf, levelDebug, "Escape enabled'\n")
+        debugPrint(log.Printf, levelInfo, "Escape enabled'\n")
 	Escape = 2
         return nil
 }
