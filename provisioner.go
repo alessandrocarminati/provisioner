@@ -64,6 +64,11 @@ func main() {
 		}
 	}
 
+	Dacl = cmdline.Dacl
+	if cmdline.Dacl != "All" {
+		fmt.Printf("Debug ACL Activated! Waching -> %s\n", cmdline.Dacl)
+	}
+
 	config, err :=  fetch_config(cmdline.ConfigFN, cmdline.Key)
 	if err!= nil {
 		log.Fatal(err)

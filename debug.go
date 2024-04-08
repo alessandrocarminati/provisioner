@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type DebugLevels struct {
@@ -21,6 +22,7 @@ var (
 )
 
 var DebugLevel int
+var Dacl string
 
 type PrintFunc func(format string, a ...interface{})
 
@@ -37,7 +39,16 @@ func debugPrint(printFunc PrintFunc, level DebugLevels,  format string, a ...int
 			}
 		}
 		newformat := fmt.Sprintf("(%s)[" + s + "] ", level.Label) + format
-		printFunc(newformat,  a...)
+		if Dacl == "All" {
+			printFunc(newformat,  a...)
+		} else {
+			fncs := strings.Split(Dacl,",")
+			for _, fnc := range fncs {
+				if strings.HasSuffix(s, fnc) {
+					printFunc(newformat,  a...)
+				}
+			}
+		}
 		if level.Value == 0 {
 			os.Exit(-1)
 		}
