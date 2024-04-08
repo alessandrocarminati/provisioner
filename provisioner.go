@@ -2,12 +2,25 @@ package main
 import (
 	"log"
 	"fmt"
+	"golang.org/x/term"
+	"syscall"
+	"strings"
 )
 
 var Build string
 var Version string
 var Hash string
 var Dirty string
+
+func readPassword() (string, error) {
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", err
+	}
+	password := string(bytePassword)
+	return strings.TrimSpace(password), nil
+}
+
 
 func main() {
 
@@ -72,6 +85,20 @@ func main() {
 	config, err :=  fetch_config(cmdline.ConfigFN, cmdline.Key)
 	if err!= nil {
 		log.Fatal(err)
+	}
+
+	//check beaker password
+	fmt.Println(config)
+	fmt.Println(config.Monitor["beaker_password"])
+	_, ok := config.Monitor["beaker_password"]
+	if !ok {
+		fmt.Println("Beaker password is not in config, please enter it manually")
+		s, err := readPassword()
+		if err != nil {
+			fmt.Printf("Error reading beaker password: %s\n", err.Error())
+			return
+		}
+		config.Monitor["beaker_password"] = s
 	}
 
 	debugPrint(log.Printf, levelWarning, "Provisioner Ver. %s.%s (%s) %s\n", Version, Build, Hash, Dirty)
