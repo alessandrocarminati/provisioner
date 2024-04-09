@@ -34,10 +34,9 @@ func (m *MonCtx) HandleCharInit(){
 	m.HandleChar=HandleChar
 }
 
-func MonitorInit(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[string] string, r *Router, prompt string, maxFences int) (*MonCtx) {
+func MonitorInit(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[string] string, r *Router, prompt string, maxFences, maxScrSess int) (*MonCtx) {
 	debugPrint(log.Printf, levelDebug, "Monitor initialization\n")
-	fences:=make(map[string]FenceFuncs, maxFences)
-	cmdctx := command_init(nil, fences)
+	cmdctx := command_init(nil, maxFences, maxScrSess)
 	cmdctx.fences["snmp"] = cmdctx.snmpSwitch
 	cmdctx.fences["tasmota"] = cmdctx.tasmotaSwitch
 	cmdctx.fences["beaker"] = cmdctx.beakerSwitch

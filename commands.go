@@ -22,16 +22,20 @@ type CmdCtx struct {
 	monitor        *MonCtx
 	commands       map[string] Command
 	fences         map[string] FenceFuncs
+	gwScr          []*ScriptGwData
 }
 
-func command_init(monitor *MonCtx, fences map[string] FenceFuncs) (*CmdCtx) {
+func command_init(monitor *MonCtx, maxFences, maxScrSess int) (*CmdCtx) {
 
 	debugPrint(log.Printf, levelInfo, "Initialyzing monitor commands struct")
+	fences := make(map[string]FenceFuncs, maxFences)
+	gws := make([]*ScriptGwData, maxScrSess)
 	commands := make(map[string]Command, 20)
 	c := &CmdCtx{
-                monitor: monitor,
-                commands: commands,
-                fences: fences,
+                monitor:   monitor,
+                commands:  commands,
+                fences:    fences,
+		gwScr:     gws,
         }
 
 	c.commands["echo"]=Command{
@@ -84,7 +88,60 @@ func command_init(monitor *MonCtx, fences map[string] FenceFuncs) (*CmdCtx) {
 		HelpText: "Load and executes the specified assm script",
 		Handler: c.exec_assm,
 	}
+	c.commands["exec_scr"]=Command{
+		Name: "exec_scr",
+		HelpText: "Load and executes the specified script",
+		Handler: c.exec_scr,
+	}
+
+	c.commands["exec_state"]=Command{
+		Name: "exec_state",
+		HelpText: "returns the state of the specified script",
+		Handler: c.exec_state,
+	}
+
 	return c
+}
+
+func (c *CmdCtx) exec_state(input string) string {
+	debugPrint(log.Printf, levelInfo, "script command state")
+	pos, err := strconv.Atoi(input)
+	if err != nil {
+		return fmt.Sprintf("Argument error: %s\r\n", err.Error())
+	}
+	if c.gwScr[pos] == nil {
+		return fmt.Sprintf("The position %d is not available:\r\n", pos)
+	}
+	return fmt.Sprintf("Script %d is in %s state\r\n", pos, c.gwScr[pos].GetState() )
+}
+
+func (c *CmdCtx) exec_scr(input string) string {
+	debugPrint(log.Printf, levelInfo, "script command requested")
+
+	args := strings.Split(input, " ")
+
+	pos, err := strconv.Atoi(args[1])
+	if err != nil {
+		return fmt.Sprintf("Argument error: %s\r\n", err.Error())
+	}
+	if c.gwScr[pos] != nil {
+		return fmt.Sprintf("The position %d is not available\r\n", pos)
+	}
+
+	n, err := (*(*c).monitor).router.GetFreePos()
+	if err != nil {
+		return fmt.Sprintf("no available channels: %s\r\n", err.Error())
+	}
+	(*(*c).monitor).router.AttachAt(n, SrcHuman)
+
+	c.gwScr[pos] = ScriptGwInit(args[0],  (*(*c).monitor).router.In[n], (*(*c).monitor).router.Out[n])
+
+	go func(c *CmdCtx, pos int){
+		defer (*(*c).monitor).router.DetachAt(n)
+		c.gwScr[pos].ScriptGwExec()
+		debugPrint(log.Printf, levelWarning, "execution terminated: %d", c.gwScr[pos].state)
+	}(c, pos)
+	return "script is processing text from serial\r\n"
 }
 
 func (c *CmdCtx) exec_assm(input string) string {
