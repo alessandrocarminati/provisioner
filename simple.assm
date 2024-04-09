@@ -1,8 +1,0 @@
-loadreg R1,Password
-loop:
-fetch
-suffix R1
-jne loop
-loadreg R2,S3cr3tp455w0rd
-output R2
-END
