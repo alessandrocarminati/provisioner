@@ -120,6 +120,9 @@ func (c *CmdCtx) exec_scr(input string) string {
 
 	args := strings.Split(input, " ")
 
+	if len(args)!=2 {
+		return fmt.Sprintf("exec_src <script_path> <slot>\r\n")
+	}
 	pos, err := strconv.Atoi(args[1])
 	if err != nil {
 		return fmt.Sprintf("Argument error: %s\r\n", err.Error())

@@ -99,6 +99,9 @@ func (gw *ScriptGwData) ScriptGwExec() {
 				return
 			}
 			for _, b := range []byte(line) {
+				if b==10 {
+					gw.Out <- 13
+				}
 				gw.Out <- b
 			}
 		}
@@ -118,6 +121,9 @@ func (gw *ScriptGwData) ScriptGwExec() {
 				return
 			}
 			for _, b := range []byte(line) {
+				if b==10 {
+					gw.Out <- 13
+				}
 				gw.Out <- b
 			}
 		}
