@@ -5,26 +5,41 @@ import (
 )
 
 type SSHCFG struct {
-                Port            string          `json:"port"`
-                IdentitFn       string          `json:"identity_fn"`
-                Authorized_keys string          `json:"authorized_keys"`
-        }
-type CalendarConfig struct {
-		Enable         bool             `json:"enable"`
-		Credfn         string           `json:"credfn"`
+	Port		string			`json:"port"`
+	IdentitFn	string			`json:"identity_fn"`
+	Authorized_keys	string			`json:"authorized_keys"`
 }
 
-type Config struct {
+type CalendarConfig struct {
+	Enable		bool			`json:"enable"`
+	Credfn		string			`json:"credfn"`
+}
+
+type NetServ struct {
 	SyslogPort	string			`json:"syslog_port"`
 	LogFile		string			`json:"logfile"`
 	TFTPDirectory	string			`json:"tftp_directory"`
 	HTTPPort	string			`json:"http_port"`
+}
+
+type RouterD struct {
+	SerialChans	int			`json:"serial_chans"`
+	MonitorChans	int			`json:"monitor_chans"`
+	SerialMain	int			`json:"serial_main"`
+	MonitorMain	int			`json:"monitor_main"`
+}
+
+type SerialD struct {
+	Port		string			`json:"port"`
+	BaudRate	int			`json:"baud_rate"`
+}
+
+type Config struct {
+	NetServices	NetServ			`json:"netservices"`
 	SSHSerTun	SSHCFG			`json:"ssh_serial_tunnel"`
 	SSHMon		SSHCFG			`json:"ssh_monitor"`
-	SerialConfig	struct {
-		Port		string		`json:"port"`
-		BaudRate	int		`json:"baud_rate"`
-	}					`json:"serial_config"`
+	Router		RouterD			`json:"router"`
+	SerialConfig	SerialD			`json:"serial_config"`
         Monitor		map[string] string	`json:"monitor"`
 	Calendar        CalendarConfig          `json:"calendar"`
 }

@@ -1,8 +1,16 @@
 {
-  "syslog_port": "514",
-  "logfile": "provisioner.log",
-  "tftp_directory": "./files/",
-  "http_port": "8080",
+  "netservices": {
+    "syslog_port": "514",
+    "logfile": "provisioner.log",
+    "tftp_directory": "./files/",
+    "http_port": "8080",
+  },
+  "router":, {
+    "serial_chans": 10,
+    "monitor_chans": 10,
+    "serial_main": 0,
+    "monitor_main": 0
+  },
   "ssh_serial_tunnel":{
     "port":"9090",
     "identity_fn": "id_rsa",
@@ -22,6 +30,8 @@
     "credfn": "calendar.auth.txt"
   },
   "monitor": {
+    "max_fence_types": "10",
+    "max_script_sess": "20",
     "pdu_type": "tasmota",
     "tasmota_host": "tasmota-8351ea-4586.hqhome163.com",
     "snmp_pdu_ctrl_oid": "1.2.3.4.5.6.7.8.9.10",

@@ -7,6 +7,8 @@ import (
 	"golang.org/x/term"
 	"syscall"
 	"strings"
+	"errors"
+	"strconv"
 )
 
 var Build string
@@ -30,6 +32,27 @@ func readUserid() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(username), nil
+}
+
+func getMaxs(config Config) (int, int, error) {
+	maxFenceTypesS, ok := config.Monitor["max_fence_types"]
+	if !ok {
+		return 0, 0, errors.New("config max_fence_types is missing")
+
+	}
+	maxFenceTypes, err := strconv.Atoi(maxFenceTypesS)
+	if err != nil {
+		return 0, 0, errors.New("config max_fence_types is wrong format")
+	}
+	maxScriptSessS, ok := config.Monitor["max_script_sess"]
+	if !ok {
+		return 0, 0, errors.New("config max_script_sess is missing")
+	}
+	maxScriptSess, err := strconv.Atoi(maxScriptSessS)
+	if err != nil {
+		return 0, 0, errors.New("config max_script_sess is wrong format")
+	}
+	return maxFenceTypes, maxScriptSess, nil
 }
 
 func main() {
@@ -124,26 +147,31 @@ func main() {
 			config.Monitor["beaker_password"] = s
 		}
 	}
+	maxFenceTypes, maxScriptSess, err :=getMaxs(config)
+	if err!= nil {
+		fmt.Printf("Config error: %s\n", err.Error())
+		return
+	}
 
 	debugPrint(log.Printf, levelWarning, "Provisioner Ver. %s.%s (%s) %s\n", Version, Build, Hash, Dirty)
-	go syslog_service(config.LogFile, config.SyslogPort)
-	go TFTPHandler(config.TFTPDirectory)
-	go HTTPHandler(config.TFTPDirectory, config.HTTPPort)
+	go syslog_service(config.NetServices.LogFile, config.NetServices.SyslogPort)
+	go TFTPHandler(config.NetServices.TFTPDirectory)
+	go HTTPHandler(config.NetServices.TFTPDirectory, config.NetServices.HTTPPort)
 
-	ssh_init(10, 10)
-	serialRouter := NewRouter(10)
+	ssh_init(config.Router.MonitorChans, config.Router.SerialChans)
+	serialRouter := NewRouter(config.Router.SerialChans)
 	serialRouter.Router()
-	serialRouter.AttachAt(0, SrcMachine)
+	serialRouter.AttachAt(config.Router.SerialMain, SrcMachine)
 
 	go SerialHandler(config.SerialConfig.Port, config.SerialConfig.BaudRate, serialRouter.In[0], serialRouter.Out[0])
 	go SSHHandler(config.SSHSerTun, "tunnel", serialRouter, false)
 
 
-	monitorRouter := NewRouter(10)
+	monitorRouter := NewRouter(config.Router.MonitorChans)
 	monitorRouter.Router()
-	monitorRouter.AttachAt(0, SrcMachine)
+	monitorRouter.AttachAt(config.Router.MonitorMain, SrcMachine)
 
-	m := MonitorInit(monitorRouter.In[0], monitorRouter.Out[0], config.Monitor, serialRouter,  "> ", 10, 20)
+	m := MonitorInit(monitorRouter.In[config.Router.MonitorMain], monitorRouter.Out[config.Router.MonitorMain], config.Monitor, serialRouter,  "> ", maxFenceTypes, maxScriptSess)
 	go m.doMonitor()
 	go SSHHandler(config.SSHMon, "monitor", monitorRouter, true)
 	if config.Calendar.Enable {
