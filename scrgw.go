@@ -72,7 +72,7 @@ func (gw *ScriptGwData) ScriptGwExec() {
 	go func() {
 		defer stdinPipe.Close()
 		for b := range gw.In {
-			debugPrint(log.Printf, levelDebug, "received %d",b)
+			debugPrint(log.Printf, levelCrazy, "received %d",b)
 			tosend := []byte{b}
 			if b==13 {
 				tosend = []byte{10, b}
@@ -98,6 +98,7 @@ func (gw *ScriptGwData) ScriptGwExec() {
 				gw.updateState(TerminatedWithError)
 				return
 			}
+			debugPrint(log.Printf, levelCrazy, "reading from stdout: %s", line)
 			for _, b := range []byte(line) {
 				if b==10 {
 					gw.Out <- 13
