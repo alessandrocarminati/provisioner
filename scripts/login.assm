@@ -1,0 +1,15 @@
+	loadreg R1,j784s4-evm login:
+loop:
+	fetch
+	suffix R1
+	jne loop
+	loadreg R2,root
+	output R2
+	loadreg R1,root@j784s4-evm:~#
+loop1:
+	fetch
+	suffix R1
+	jne loop1
+	loadreg R2,ls /
+	output R2
+	END
