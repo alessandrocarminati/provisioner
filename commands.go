@@ -120,10 +120,20 @@ func (c *CmdCtx) exec_scr(input string) string {
 
 	args := strings.Split(input, " ")
 
-	if len(args)!=2 {
-		return fmt.Sprintf("exec_src <script_path> <slot>\r\n")
+	if len(args)!=3 {
+		return fmt.Sprintf("exec_src <script_path> <term_type> <slot>\r\n")
 	}
-	pos, err := strconv.Atoi(args[1])
+	ttype:=UndefinedTerm
+	switch args[1] {
+	case "line":
+		ttype=LineOriented
+	case "char":
+		ttype=CharOriented
+	default:
+		return fmt.Sprintf("Unknown terminal type: %s\r\n")
+	}
+
+	pos, err := strconv.Atoi(args[2])
 	if err != nil {
 		return fmt.Sprintf("Argument error: %s\r\n", err.Error())
 	}
@@ -137,7 +147,7 @@ func (c *CmdCtx) exec_scr(input string) string {
 	}
 	(*(*c).monitor).router.AttachAt(n, SrcHuman)
 
-	c.gwScr[pos] = ScriptGwInit(args[0],  (*(*c).monitor).router.In[n], (*(*c).monitor).router.Out[n])
+	c.gwScr[pos] = ScriptGwInit(args[0], ttype, (*(*c).monitor).router.In[n], (*(*c).monitor).router.Out[n])
 
 	go func(c *CmdCtx, pos int){
 		defer (*(*c).monitor).router.DetachAt(n)

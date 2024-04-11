@@ -1,8 +1,9 @@
 package main
 import (
 	"bufio"
-//	"fmt"
-	"log"
+	"crypto/rand"
+	"encoding/hex"
+ 	"log"
 	"io"
 	"os/exec"
 	"strings"
@@ -10,6 +11,7 @@ import (
 )
 
 type ExecutionState int
+type TermType int
 
 const (
 	Undefined ExecutionState = iota
@@ -17,9 +19,15 @@ const (
 	TerminatedWithError
 	TerminatedOk
 )
+const (
+	UndefinedTerm TermType = iota
+	CharOriented
+	LineOriented
+)
 
 type ScriptGwData struct {
 	state         ExecutionState
+	TType         TermType
 	mu            sync.Mutex
 	cmdFn         string
 	In            <-chan byte
@@ -36,9 +44,71 @@ func (gw *ScriptGwData) GetState() string {
 	return "Inconsistent"
 }
 
+func generateRandomToken(length int) (string, error) {
+    randomBytes := make([]byte, length)
+    _, err := rand.Read(randomBytes)
+    if err != nil {
+        return "", err
+    }
+
+    token := hex.EncodeToString(randomBytes)
+
+    return token, nil
+}
+
+func (gw *ScriptGwData) charOrientedWrite(stdinPipe io.WriteCloser, jisatsu *bool) {
+	t, _ := generateRandomToken(5)
+	debugPrint(log.Printf, levelDebug, "Starting id:%s'", t)
+	defer stdinPipe.Close()
+	for b := range gw.In {
+		if !(*jisatsu) {
+			break
+		}
+		debugPrint(log.Printf, levelDebug, "received %d",b)
+		tosend := []byte{b}
+		if b==13 {
+			tosend = []byte{10, b}
+		}
+		_, err := stdinPipe.Write(tosend)
+		if err != nil {
+			debugPrint(log.Printf, levelError, "Error writing to stdin: %s", err.Error())
+			return
+		}
+	}
+	debugPrint(log.Printf, levelDebug, "shutting down id:%s'", t)
+}
+
+func (gw *ScriptGwData) lineOrientedWrite(stdinPipe io.WriteCloser, jisatsu *bool) {
+	var tosend []byte
+
+	t, _ := generateRandomToken(5)
+	debugPrint(log.Printf, levelDebug, "Starting id:%s'", t)
+	defer stdinPipe.Close()
+	for b := range gw.In {
+		if !(*jisatsu) {
+			break
+		}
+		if b==13 {
+			tosend = append(tosend, 10)
+			tosend = append(tosend, 13)
+			_, err := stdinPipe.Write(tosend)
+			if err != nil {
+				debugPrint(log.Printf, levelError, "Error writing to stdin: %s", err.Error())
+				return
+			}
+			tosend = []byte{}
+		} else  {
+		tosend = append(tosend, b)
+		}
+		debugPrint(log.Printf, levelCrazy, "(%s)received %02x current='%s'", t, b, string(tosend))
+	}
+	debugPrint(log.Printf, levelDebug, "shutting down id:%s'", t)
+}
+
 func (gw *ScriptGwData) ScriptGwExec() {
 	debugPrint(log.Printf, levelInfo, "Script '%s' launched", gw.cmdFn)
 	gw.updateState(Running)
+	jisatsu := true
 
 	cmdParts := splitCmdString(gw.cmdFn)
 
@@ -63,32 +133,31 @@ func (gw *ScriptGwData) ScriptGwExec() {
 		return
 	}
 
+
 	if err := cmd.Start(); err != nil {
 		debugPrint(log.Printf, levelError, "Error starting command: %s", err.Error())
 		gw.updateState(TerminatedWithError)
 		return
 	}
+	debugPrint(log.Printf, levelDebug, "Script Started!")
 
+	switch gw.TType {
+		case CharOriented:
+			debugPrint(log.Printf, levelDebug, "Starting chars based stdin manager")
+			go gw.charOrientedWrite(stdinPipe, &jisatsu)
+		case LineOriented:
+			debugPrint(log.Printf, levelDebug, "Starting lines based stdin manager")
+			go gw.lineOrientedWrite(stdinPipe, &jisatsu)
+		default:
+			gw.updateState(TerminatedWithError)
+			return
+	}
 	go func() {
-		defer stdinPipe.Close()
-		for b := range gw.In {
-			debugPrint(log.Printf, levelCrazy, "received %d",b)
-			tosend := []byte{b}
-			if b==13 {
-				tosend = []byte{10, b}
-			}
-			_, err := stdinPipe.Write(tosend)
-			if err != nil {
-				debugPrint(log.Printf, levelError, "Error writing to stdin: %s", err.Error())
-				return
-			}
-		}
-	}()
-
-	go func() {
+		debugPrint(log.Printf, levelDebug, "stdout is starting!")
 		defer stdoutPipe.Close()
 		reader := bufio.NewReader(stdoutPipe)
-		for {
+		for jisatsu {
+//			debugPrint(log.Printf, levelDebug, "stdout is reading!")
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
@@ -106,12 +175,15 @@ func (gw *ScriptGwData) ScriptGwExec() {
 				gw.Out <- b
 			}
 		}
+		debugPrint(log.Printf, levelDebug, "stdout is shutting down!")
 	}()
 
 	go func() {
+		debugPrint(log.Printf, levelDebug, "stderr is starting!")
 		defer stderrPipe.Close()
 		reader := bufio.NewReader(stderrPipe)
-		for {
+		for jisatsu {
+//			debugPrint(log.Printf, levelDebug, "stderr is reading!")
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
@@ -123,9 +195,11 @@ func (gw *ScriptGwData) ScriptGwExec() {
 			}
 			debugPrint(log.Printf, levelInfo, "SCRIPT: %s", line)
 		}
+		debugPrint(log.Printf, levelDebug, "stderr is shutting down!")
 	}()
 
 	err = cmd.Wait()
+	jisatsu = false
 	if err != nil {
 		debugPrint(log.Printf, levelError, "Command execution error: %s", err.Error())
 		gw.updateState(TerminatedWithError)
@@ -145,10 +219,11 @@ func (gw *ScriptGwData) updateState(newState ExecutionState) {
 	gw.state = newState
 }
 
-func ScriptGwInit(cmdFn string, In <-chan byte, Out chan<- byte) *ScriptGwData {
+func ScriptGwInit(cmdFn string, ttype TermType, In <-chan byte, Out chan<- byte) *ScriptGwData {
 	return  &ScriptGwData{
 		state:        Undefined,
 		cmdFn:        cmdFn,
+		TType:        ttype,
 		In:           In,
 		Out:          Out,
 	}
