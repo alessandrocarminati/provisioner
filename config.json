@@ -3,9 +3,9 @@
     "syslog_port": "514",
     "logfile": "provisioner.log",
     "tftp_directory": "./files/",
-    "http_port": "8080",
+    "http_port": "8080"
   },
-  "router":, {
+  "router": {
     "serial_chans": 10,
     "monitor_chans": 10,
     "serial_main": 0,
