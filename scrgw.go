@@ -121,12 +121,7 @@ func (gw *ScriptGwData) ScriptGwExec() {
 				gw.updateState(TerminatedWithError)
 				return
 			}
-			for _, b := range []byte(line) {
-				if b==10 {
-					gw.Out <- 13
-				}
-				gw.Out <- b
-			}
+			debugPrint(log.Printf, levelInfo, "SCRIPT: %s", line)
 		}
 	}()
 
