@@ -9,6 +9,7 @@ import (
 	"strings"
 	"strconv"
 	"errors"
+	"time"
 )
 
 type InstructionType int
@@ -60,6 +61,7 @@ type Executor struct {
 	instructions  []Instruction
 	fetcher       func(chan byte) byte
 	fetcherArg    chan byte
+	putter        func(string)
 	executed      int
 }
 
@@ -76,6 +78,17 @@ func (e *Executor) setFetcherArg(a chan byte) {
 func (e *Executor) fetch() byte {
 	debugPrint(log.Printf, levelCrazy, "executing fetcher function")
 	return e.fetcher(e.fetcherArg)
+}
+
+func (e *Executor) setPutter(f func(string) ) {
+	debugPrint(log.Printf, levelDebug, "Set new putter function")
+	e.putter =f
+}
+
+func (e *Executor) put(s string) {
+	debugPrint(log.Printf, levelCrazy, "executing putter function")
+	e.putter(s+"\r\n")
+	return
 }
 
 func (e *Executor) Parse(input []string) (error) {
@@ -317,9 +330,7 @@ func (e *Executor) Execute(limit int) error {
 			e.registers[reg] += e.accumulator
 		case Output:
 			reg, _ := getRegisterIndex(instr.Args[0])
-			// TODO: Implement fetch logic (outputting to stdout)
-			fmt.Println(reg)
-			debugPrint(log.Printf, levelError, "OUT reached ===================>")
+			e.put(e.registers[reg])
 		case JE:
 			labelIdx, _ := strconv.Atoi(instr.Args[0])
 			if e.flag {
@@ -391,6 +402,14 @@ func einit(fn string, In <-chan byte, Out chan<- byte) (Executor, error){
         executor := Executor{}
         executor.setFetcher(peek)
         executor.setFetcherArg(input)
+        executor.setPutter(func(s string) {
+				for i:=0;i<len(s);i++ {
+					Out <- byte(s[i])
+				}
+				for len(Out) > 0 { // warning! out channel can be used for other actors
+					time.Sleep(50 * time.Millisecond)
+				}
+			})
 	lines, err :=TextRead(fn)
 	if err!= nil {
 		debugPrint(log.Printf, levelError, "Error in reading assm file: %s", err.Error())
@@ -402,16 +421,6 @@ func einit(fn string, In <-chan byte, Out chan<- byte) (Executor, error){
 		return Executor{}, err
 	}
 
-
-/*
-	go func() {
-		for {
-			for i:=0;i<n;i++ {
-				Out <- buf[i]
-			}
-		}
-	}()
-*/
 	go func() {
 		for {
 			data := <-In
