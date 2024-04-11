@@ -86,7 +86,7 @@ func (gw *ScriptGwData) ScriptGwExec() {
 	}()
 
 	go func() {
-		defer close(gw.Out)
+		defer stdoutPipe.Close()
 		reader := bufio.NewReader(stdoutPipe)
 		for {
 			line, err := reader.ReadString('\n')
@@ -109,7 +109,7 @@ func (gw *ScriptGwData) ScriptGwExec() {
 	}()
 
 	go func() {
-		defer close(gw.Out)
+		defer stderrPipe.Close()
 		reader := bufio.NewReader(stderrPipe)
 		for {
 			line, err := reader.ReadString('\n')
