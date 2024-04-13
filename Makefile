@@ -1,7 +1,7 @@
-MAJOR=$(shell ./maj.sh)
-MINOR=$(shell ./min.sh)
+MAJOR=$(shell ./verscripts/maj.sh)
+MINOR=$(shell ./verscripts/min.sh)
 CHASH=$(shell git log --pretty=oneline| head -n1 |cut -d" " -f1)
-DIRTY=$(shell ./dirty.sh)
+DIRTY=$(shell ./verscripts/dirty.sh)
 ifeq ($(shell command -v upx 2> /dev/null),)
 	ALL_DEPENDENCIES := provisioner-$(MAJOR).$(MINOR)
 else
@@ -21,15 +21,19 @@ provisioner.upx-$(MAJOR).$(MINOR): provisioner-$(MAJOR).$(MINOR)
 
 clean:
 	rm -rf  provisioner-* provisioner.upx-* dist
-
+	$(MAKE) -C goinit/ clean
 dist:
 	@mkdir -p dist
 	@cp config.json dist/config-sample.json
 	@echo "put here your google credentials" >dist/cred.json
+	@cp -r scripts dist/
+	$(MAKE) -C goinit/
+	@cp goinit/bin/*.rootfs*.cpio dist
 	@for arch in 386 amd64 arm arm64 mipsle; do \
 		$(MAKE) provisioner-$(MAJOR).$(MINOR) GOOS=linux GOARCH=$$arch prefix=dist/$${arch}.; \
 		$(MAKE) provisioner.upx-$(MAJOR).$(MINOR) GOOS=linux GOARCH=$$arch prefix=dist/$${arch}.; \
-		tar zcf dist/provisioner.$${arch}-$(MAJOR).$(MINOR).tar.gz dist/$${arch}.provisioner.upx-$(MAJOR).$(MINOR) dist/$${arch}.provisioner-$(MAJOR).$(MINOR) dist/config-sample.json dist/cred.json; \
+		tar zcf dist/provisioner.$${arch}-$(MAJOR).$(MINOR).tar.gz dist/$${arch}.provisioner.upx-$(MAJOR).$(MINOR) dist/$${arch}.provisioner-$(MAJOR).$(MINOR) dist/config-sample.json dist/cred.json dist/scripts dist/*.rootfs*.cpio; \
 		rm -f dist/$${arch}.provisioner.upx-$(MAJOR).$(MINOR) dist/$${arch}.provisioner-$(MAJOR).$(MINOR); \
 	done
-	rm dist/config-sample.json dist/cred.json
+	rm -rf dist/config-sample.json dist/cred.json dist/rootfs*.cpio dist/scripts
+

@@ -15,6 +15,13 @@ import (
 var startmsg chan bool
 var logLevel int
 
+var Build string
+var Version string
+var Hash string
+var Dirty string
+
+
+
 func isSymbolicLink(path string, msgs chan string) bool {
 	fileInfo, err := os.Lstat(path)
 	if err != nil {
@@ -56,10 +63,11 @@ func main() {
 
 	msgs := make(chan string, 300)
 	startmsg = make(chan bool ,1)
+	VersionStr := fmt.Sprintf("%s.%s (%s) %s", Version, Build, Hash, Dirty)
 
 	actions:=initActions()
 
-	msgs <- logbuf.LogSprintf(logbuf.LevelNotice, "Starting Init")
+	msgs <- logbuf.LogSprintf(logbuf.LevelNotice, "Starting Init %s", VersionStr)
 	msgs <- logbuf.LogSprintf(logbuf.LevelInfo, "Checking pid")
 	if os.Getpid() != 1 {
 		msgs <- logbuf.LogSprintf(logbuf.LevelWarning, "This is not pid 1")
