@@ -169,9 +169,6 @@ func (gw *ScriptGwData) ScriptGwExec() {
 			}
 			debugPrint(log.Printf, levelCrazy, "reading from stdout: %s", line)
 			for _, b := range []byte(line) {
-				if b==10 {
-					gw.Out <- 13
-				}
 				gw.Out <- b
 			}
 		}
