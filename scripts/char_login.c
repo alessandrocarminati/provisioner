@@ -6,26 +6,33 @@
 #include <setjmp.h>
 #include <signal.h>
 #include <unistd.h>
+#include <termios.h>
 
-#define BUFFER_SIZE 4096
-#define NUM_PATTERNS 2
+#define NUM_PATTERNS 9
 #define TIMEOUT 5
+#define MAX_LINE_LENGTH 1024
 
-int resizebuf(char **buf) {
-	char *newline_pos = strrchr(*buf, '\n');
-	if (newline_pos == NULL) {
-		return strlen(*buf);
-	}
-	char *new_buf = (char *)malloc(BUFFER_SIZE * sizeof(char));
-	for (int i=0; i<BUFFER_SIZE; i++) *(new_buf+i)=0;
-	if (new_buf == NULL) {
-		fprintf(stderr, "Memory allocation error\n");
-		exit(EXIT_FAILURE);
-	}
-	strcpy(new_buf, newline_pos + 1);
-	free(*buf);
-	*buf = new_buf;
-	return 0;
+struct termios orig_termios;
+
+struct line {
+	int pos;
+	char buf[MAX_LINE_LENGTH + 1];
+};
+
+void reset_terminal_mode()
+{
+	tcsetattr(0, TCSANOW, &orig_termios);
+}
+
+void set_conio_terminal_mode()
+{
+	struct termios new_termios;
+
+	tcgetattr(0, &orig_termios);
+	memcpy(&new_termios, &orig_termios, sizeof(new_termios));
+	atexit(reset_terminal_mode);
+	cfmakeraw(&new_termios);
+	tcsetattr(0, TCSANOW, &new_termios);
 }
 
 int find_occurrence(char *buf, char *patterns[], int index) {
@@ -41,6 +48,33 @@ int find_occurrence(char *buf, char *patterns[], int index) {
 
 	return found;
 }
+
+
+int getchar_timeout(char *c, int timeout_seconds) {
+	fd_set fds;
+	struct timeval tv;
+	int retval;
+
+	FD_ZERO(&fds);
+	FD_SET(STDIN_FILENO, &fds);
+
+	tv.tv_sec = timeout_seconds;
+	tv.tv_usec = 0;
+
+	retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
+
+	if (retval == -1) {
+		perror("select()");
+		return -1;
+	} else if (retval) {
+		return read(STDIN_FILENO, c, 1);
+	} else {
+		return 0;
+	}
+}
+
+
+
 
 int read_timeout(char *buffer, int size, int timeout_seconds) {
 	fd_set fds;
@@ -65,41 +99,85 @@ int read_timeout(char *buffer, int size, int timeout_seconds) {
 	}
 }
 
+void update_line(struct line *l, char c) {
+	if ((c == '\b') || (c == 0x7f)) { // Handle backspace
+		if (l->pos > 0) {
+			memmove(&l->buf[l->pos - 1], &l->buf[l->pos], strlen(&l->buf[l->pos]) + 1);
+			l->pos--;
+		}
+	} else if ((c == '\r')||(c == '\n')) { // Handle carriage return/newline
+		memset(l->buf, 0, MAX_LINE_LENGTH);
+		l->pos = 0;
+	} else if (c >= 32 && c <= 126) { // Handle printable characters
+		if (l->pos < MAX_LINE_LENGTH) {
+			l->buf[l->pos] = c;
+			l->pos++;
+		}
+	} else if (c == 0x03) { // Handle Ctrl+C
+		exit(0); // Exit program
+	}
+
+}
 
 int main() {
 	char *patterns[NUM_PATTERNS] = {
-		"j784s4-evm login:",
-		"root@j784s4-evm:~#"
+		"^=> ",
+		"^=> ",
+		"^=> ",
+		"^=> ",
+		"^=> ",
+		"^=> ",
+		"^=> ",
+		"^=> ",
+		"^buildroot login:"
 	};
 	char *actions[NUM_PATTERNS] = {
-		"root",
-		"ls /"
+		"echo dummy",
+		"echo dummy",
+		"dhcp",
+		"setenv serverip 10.26.28.75",
+		"tftpboot 0x82000000 J784S4XEVM.flasher.img",
+		"tftpboot 0x84000000 k3-j784s4-evm.dtb",
+		"setenv bootargs rootwait root=/dev/mmcblk1p3",
+		"booti 0x82000000 - 0x84000000",
+		"root"
 	};
-	int ret, bufpos=0, pos=0;
 
+	char c;
+	struct line *current_line;
+	int ret, i, pos=0;
+
+	set_conio_terminal_mode();
+
+	// unbuffered stdout
 	setvbuf(stdout, NULL, _IONBF, 0);
-	char *buffer = (char *)malloc(BUFFER_SIZE * sizeof(char));
-	for (int i=0; i<BUFFER_SIZE; i++) *(buffer+i)=0;
-	if (buffer == NULL) {
+	current_line = (struct line *)malloc(sizeof(struct line));
+	if (current_line == NULL) {
 		fprintf(stderr, "Memory allocation error\n");
 		exit(EXIT_FAILURE);
 	}
 
 	while (pos <NUM_PATTERNS) {
-		ret = read_timeout(buffer+bufpos, BUFFER_SIZE, TIMEOUT);
+		ret = getchar_timeout(&c, TIMEOUT);
+		if (ret<0) {
+			fprintf(stderr, "select error\n");
+			continue;
+		}
 		if (!ret) {
 			fprintf(stderr, "timeout\n");
 			printf("\n");
-			fflush(stdout); 
+			fflush(stdout);
+			continue;
 		}
-		if (find_occurrence(buffer, patterns, pos)){
-			fprintf(stderr, "found, print %s\n", actions[pos]);
+		update_line(current_line, c);
+		if (find_occurrence(current_line->buf, patterns, pos)){
+			fprintf(stderr, "'%s' found, print %s\n", patterns[pos], actions[pos]);
+			sleep(1);
 			printf("%s\n", actions[pos]);
 			pos++;
+			update_line(current_line, '\n');
 		}
-		bufpos = resizebuf(&buffer);
 	}
 
-	free(buffer);
 	return 0;
 }
