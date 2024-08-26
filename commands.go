@@ -2,6 +2,8 @@ package main
 
 import (
         "log"
+	"os"
+	"time"
         "fmt"
         "sort"
 	"strconv"
@@ -98,6 +100,12 @@ func command_init(monitor *MonCtx, maxFences, maxScrSess int) (*CmdCtx) {
 		Name: "exec_state",
 		HelpText: "returns the state of the specified script",
 		Handler: c.exec_state,
+	}
+
+	c.commands["log_serial"]=Command{
+		Name: "log_serial",
+		HelpText: "copies in a file ser.log all sent and received from the serial. Note: overwrites previous.",
+		Handler: c.log_serial,
 	}
 
 	return c
@@ -324,4 +332,64 @@ func (c *CmdCtx) echoCmd(input string) string{
 		return "error"
 	}
 	return input + "\r\n"
+}
+
+func (c *CmdCtx) log_serial(input string) string{
+
+	if (input == "") {
+		return fmt.Sprintf("no input file given\r\n")
+	}
+	items := strings.Split(input, " ")
+	if (len(items)!=1) {
+		return fmt.Sprintf("Syntax error. Command has only an argument. it is the log file name.\r\n")
+	}
+	debugPrint(log.Printf, levelInfo, "log_serial command requested")
+	n, err := (*(*c).monitor).router.GetFreePos()
+	if err != nil {
+		 return fmt.Sprintf("no available channels: %s\r\n", err.Error())
+	}
+	(*(*c).monitor).router.AttachAt(n, SrcHuman)
+	go func(c *CmdCtx){
+		var buffer []byte
+		defer (*(*c).monitor).router.DetachAt(n)
+
+		f, err := os.Create(input)
+		if err!=nil {
+			debugPrint(log.Printf, levelError, "Can't create file %s: %s", input, err.Error())
+		}
+		defer f.Close()
+
+		debugPrint(log.Printf, levelInfo, "Goroutine started")
+		inStrChan := (*(*c).monitor).router.In[n]
+
+		go func(){
+			for {
+				if len(buffer) > 0 {
+					debugPrint(log.Printf, levelDebug, "Writing buffer in the file '%s'", buffer)
+					n2, err := f.Write(buffer)
+					if err != nil {
+						debugPrint(log.Printf, levelError, "Cant write log file: %s", err.Error())
+					}
+					debugPrint(log.Printf, levelDebug, "Wrote %d bytes", n2)
+					f.Sync()
+					buffer = nil
+				}
+				time.Sleep(5 * time.Second)
+			}
+		}()
+		for {
+			select {
+			case b, ok := <-inStrChan:
+				if !ok {
+					debugPrint(log.Printf, levelError, "can't read from channel, write buffer and end the goroutine")
+					if len(buffer) > 0 {
+						f.Write(buffer)
+					}
+					return
+				}
+				buffer = append(buffer, b)
+			}
+		}
+	}(c)
+        return fmt.Sprintf("Logging on '%s'\r\n", input)
 }
