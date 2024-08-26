@@ -27,6 +27,9 @@ type CmdCtx struct {
 	gwScr          []*ScriptGwData
 }
 
+var log_serial_in_progress bool
+
+
 func command_init(monitor *MonCtx, maxFences, maxScrSess int) (*CmdCtx) {
 
 	debugPrint(log.Printf, levelInfo, "Initialyzing monitor commands struct")
@@ -106,6 +109,12 @@ func command_init(monitor *MonCtx, maxFences, maxScrSess int) (*CmdCtx) {
 		Name: "log_serial",
 		HelpText: "copies in a file ser.log all sent and received from the serial. Note: overwrites previous.",
 		Handler: c.log_serial,
+	}
+
+	c.commands["log_serial_stop"]=Command{
+		Name: "log_serial_stop",
+		HelpText: "Requires serila log subsystem to stop.",
+		Handler: c.log_serial_stop,
 	}
 
 	return c
@@ -333,9 +342,16 @@ func (c *CmdCtx) echoCmd(input string) string{
 	}
 	return input + "\r\n"
 }
+func (c *CmdCtx) log_serial_stop(input string) string{
+	log_serial_in_progress=false
+	return fmt.Sprintf("Sent request to stop logging.\r\n")
+}
 
 func (c *CmdCtx) log_serial(input string) string{
 
+	if log_serial_in_progress {
+		return fmt.Sprintf("Already in progress\r\n")
+	}
 	if (input == "") {
 		return fmt.Sprintf("no input file given\r\n")
 	}
@@ -349,6 +365,7 @@ func (c *CmdCtx) log_serial(input string) string{
 		 return fmt.Sprintf("no available channels: %s\r\n", err.Error())
 	}
 	(*(*c).monitor).router.AttachAt(n, SrcHuman)
+	log_serial_in_progress=true
 	go func(c *CmdCtx){
 		var buffer []byte
 		defer (*(*c).monitor).router.DetachAt(n)
@@ -363,7 +380,7 @@ func (c *CmdCtx) log_serial(input string) string{
 		inStrChan := (*(*c).monitor).router.In[n]
 
 		go func(){
-			for {
+			for log_serial_in_progress {
 				if len(buffer) > 0 {
 					debugPrint(log.Printf, levelDebug, "Writing buffer in the file '%s'", buffer)
 					n2, err := f.Write(buffer)
@@ -377,7 +394,7 @@ func (c *CmdCtx) log_serial(input string) string{
 				time.Sleep(5 * time.Second)
 			}
 		}()
-		for {
+		for log_serial_in_progress {
 			select {
 			case b, ok := <-inStrChan:
 				if !ok {
