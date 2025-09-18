@@ -368,7 +368,7 @@ func (c *CmdCtx) log_serial(input string) string{
 	log_serial_in_progress=true
 	go func(c *CmdCtx){
 		var buffer []byte
-		defer (*(*c).monitor).router.DetachAt(n)
+		(*(*c).monitor).router.DetachAt(n) // n is consistent, golang lifetime maintains it after parent terminates.
 
 		f, err := os.Create(input)
 		if err!=nil {
