@@ -2,6 +2,8 @@ package main
 import (
 	"github.com/pin/tftp"
 	"fmt"
+	"net/http"
+	"strings"
 	"os"
 	"io"
 	"log"
@@ -10,17 +12,36 @@ func TFTPHandler(rootDir string) {
 	debugPrint(log.Printf, levelWarning, "Starting TFTP service with rootdir: %s", rootDir )
 	server := tftp.NewServer(
 		func(filename string, rf io.ReaderFrom) error {
+			var (
+				err error
+				resp io.ReadCloser
+			)
 			debugPrint(log.Printf, levelNotice, "TFTP Request: %s\n", filename)
+			if strings.HasPrefix(filename, "http___") {
+				url := strings.Replace(filename, "http___", "http://", 1)
+				debugPrint(log.Printf, levelNotice, "TFTP Remote proxy service Request: %s\n", url)
+				httpResp, err := http.Get(url)
+				if err != nil {
+					return  err
+				}
+				if httpResp.StatusCode != http.StatusOK {
+					httpResp.Body.Close()
+					return fmt.Errorf("failed to fetch file: %s", httpResp.Status)
+				}
+				resp = httpResp.Body
+				defer resp.Close()
+			} else {
+				debugPrint(log.Printf, levelNotice, "TFTP Local service Request: %s\n", filename)
+				filePath := rootDir + filename
 
-			filePath := rootDir + filename
-
-			file, err := os.Open(filePath)
-			if err != nil {
-				return err
+				file, err := os.Open(filePath)
+				if err != nil {
+					return err
+				}
+				resp = file
+				defer resp.Close()
 			}
-			defer file.Close()
-
-			_, err = rf.ReadFrom(file)
+			_, err = rf.ReadFrom(resp)
 			return err
 		},
 		func(filename string, wt io.WriterTo) error {
