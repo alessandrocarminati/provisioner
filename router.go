@@ -38,14 +38,17 @@ func NewRouter(n int) *Router {
 	return r
 }
 
-func (r *Router)GetFreePos() (int, error){
-	for i, item := range r.SrcType {
-		if item == SrcNone {
-			return i, nil
-		}
-	}
-	return -1, errors.New("No channel available")
+func (r *Router) GetFreePos() (int, error) {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    for i, item := range r.SrcType {
+        if item == SrcNone {
+            return i, nil
+        }
+    }
+    return -1, errors.New("No channel available")
 }
+
 func (r *Router)AttachAt(pos int, stype SType) error{
 	r.mu.Lock()
 	debugPrint(log.Printf, levelDebug, "Router channel %d attached type=%d\n", pos, stype)
@@ -58,12 +61,12 @@ func (r *Router)AttachAt(pos int, stype SType) error{
 }
 
 func (r *Router)indexOfIn(targetChannel chan byte) int {
-    for i, ch := range r.In {
-        if ch == targetChannel {
-            return i
-        }
-    }
-    return -1
+	for i, ch := range r.In {
+		if ch == targetChannel {
+			return i
+		}
+	}
+	return -1
 }
 
 func (r *Router)DetachAt(pos int) error{
@@ -83,6 +86,7 @@ func (r *Router)Brodcast(excluded int, data byte) {
 				select {
 				case r.In[i] <- data:
 					debugPrint(log.Printf, levelCrazy, "Broadcast: send %d  to %d\n", data, i)
+				default: // drop 
 				}
 			}
 		}
@@ -95,39 +99,38 @@ func (r *Router)Unicast(data byte) {
 			select {
 			case r.In[i] <- data:
 				debugPrint(log.Printf, levelCrazy, "Unicast: send %d  to %d\n", data, i)
+			default: // drop 
 			}
 		}
 	}
 }
 
-func (r *Router)Router() {
+func (r *Router) Router() {
 	debugPrint(log.Printf, levelInfo, "Router started")
-	go func() {
-		for {
-			debugPrint(log.Printf, levelCrazy, "start polling cycle")
-			for i, ch := range r.SrcType{
-				if ch!= SrcNone {
-					debugPrint(log.Printf, levelCrazy, "polling %d\n", i)
-					select {
-					case data, ok := <-r.Out[i]:
-						debugPrint(log.Printf, levelCrazy, "received %d from %d \n", data, i)
-						if !ok {
-							panic("stocazzo r")
-						}
-						if ch==SrcHuman {
-							if data == 10 {
-								r.LEnter=i
-							}
-							r.Unicast(data)
-							continue
-						}
-						if ch==SrcMachine {
-							r.Brodcast(i,data)
-						}
-					default:
+	// for each possible slot spawn a worker
+	for i := range r.Out {
+		go func(idx int) {
+			for data := range r.Out[idx] {
+				r.mu.Lock()
+				st := r.SrcType[idx]
+				r.mu.Unlock()
+				if st == SrcNone {
+					// skip if free (could log)
+					continue
+				}
+				debugPrint(log.Printf, levelCrazy, "received %d from %d \n", data, idx)
+				if st == SrcHuman {
+					if data == '\n' {
+						r.mu.Lock()
+						r.LEnter = idx
+						r.mu.Unlock()
 					}
+					r.Unicast(data) // forwards to SrcMachine
+				} else if st == SrcMachine {
+					r.Brodcast(idx, data) // forwards to SrcHuman(s)
 				}
 			}
-		}
-	}()
+			debugPrint(log.Printf, levelDebug, "out channel %d closed, worker exit", idx)
+		}(i)
+	}
 }

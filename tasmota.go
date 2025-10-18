@@ -16,7 +16,7 @@ type DeviceState struct {
 func (c *CmdCtx) tasmotaSwitch(state string) error {
 	err := errors.New(fmt.Sprintf("Unknown command: %s", state))
 
-	if ((state!="ON") || (state!="OFF")) {
+	if ((state=="ON") || (state=="OFF")) {
 		tasmota_host, ok := (*(*c).monitor).monitorConfig["tasmota_host"]
 		if ok {
 			err = TasmotaSetState(tasmota_host, state)

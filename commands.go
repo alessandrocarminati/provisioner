@@ -147,7 +147,7 @@ func (c *CmdCtx) exec_scr(input string) string {
 	case "char":
 		ttype=CharOriented
 	default:
-		return fmt.Sprintf("Unknown terminal type: %s\r\n")
+		return fmt.Sprintf("Unknown terminal type: %s\r\n", args[1])
 	}
 
 	pos, err := strconv.Atoi(args[2])
