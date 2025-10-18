@@ -31,8 +31,8 @@ func NewRouter(n int) *Router {
 		SrcType: make([]SType, n),
 	}
 	for i:=0; i<n; i++ {
-		r.In[i]=make(chan byte, 10)
-		r.Out[i]=make(chan byte, 10)
+		r.In[i]=make(chan byte, 4096)
+		r.Out[i]=make(chan byte, 4096)
 		r.SrcType[i]=SrcNone
 	}
 	return r

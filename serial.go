@@ -46,6 +46,7 @@ func SerialHandler(serialPort string, BaudRate int, serialIn <-chan byte, serial
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		buf := make([]byte, 4096)
 		for {
 			n, err := serialPortInstance.Read(buf)
@@ -62,6 +63,7 @@ func SerialHandler(serialPort string, BaudRate int, serialIn <-chan byte, serial
 
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			data := <-serialIn
 			_, err := serialPortInstance.Write([]byte{data})
