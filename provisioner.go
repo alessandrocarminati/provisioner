@@ -1,6 +1,9 @@
 package main
 import (
+	"context"
+	"sync/atomic"
 	"bufio"
+	"time"
 	"os"
 	"log"
 	"fmt"
@@ -9,6 +12,7 @@ import (
 	"strings"
 	"errors"
 	"strconv"
+	"runtime"
 )
 
 var Build string
@@ -55,8 +59,25 @@ func getMaxs(config Config) (int, int, error) {
 	return maxFenceTypes, maxScriptSess, nil
 }
 
+func noiseGenerator(ctx context.Context) {
+	var counter uint64
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			atomic.AddUint64(&counter, 1)
+			runtime.Gosched()
+		}
+	}
+}
+
 func main() {
 
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	cmdline := parseCMDline()
 	DebugLevel = cmdline.DebLev
 
@@ -155,6 +176,11 @@ func main() {
 
 	debugPrint(log.Printf, levelWarning, "Provisioner Ver. %s.%s (%s) %s\n", Version, Build, Hash, Dirty)
 	go syslog_service(config.NetServices.LogFile, config.NetServices.SyslogPort)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go noiseGenerator(ctx)
+
 	go TFTPHandler(config.NetServices.TFTPDirectory)
 	go HTTPHandler(config.NetServices.TFTPDirectory, config.NetServices.HTTPPort)
 

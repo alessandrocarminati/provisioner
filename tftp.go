@@ -1,6 +1,7 @@
 package main
 import (
-	"github.com/pin/tftp"
+//	"github.com/pin/tftp"
+	"github.com/pin/tftp/v3"
 	"fmt"
 	"net/http"
 	"strings"
@@ -45,9 +46,21 @@ func TFTPHandler(rootDir string) {
 			return err
 		},
 		func(filename string, wt io.WriterTo) error {
-			return fmt.Errorf("Write operation not supported")
+			debugPrint(log.Printf, levelNotice, "TFTP Write Request: %s\n", filename)
+
+			filePath := rootDir + filename
+			file, err := os.Create(filePath)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = wt.WriteTo(file)
+			return err
 		},
 	)
+	server.SetBlockSize(1468)
+	server.SetAnticipate(64)
 	bind:="0.0.0.0:69"
 	err := server.ListenAndServe(bind)
 	if err != nil {
