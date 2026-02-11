@@ -1,8 +1,9 @@
 package main
 
 import (
-        "strings"
 	"log"
+	"sort"
+	"strings"
 )
 
 type CharFunc func(b byte, line *[]byte) []byte
@@ -19,11 +20,12 @@ type MonCtx struct {
 func (m *MonCtx) HandleCharInit(){
 	var HandleChar [256] CharFunc
 
-	for i:=0;i<=31;i++ {
-		HandleChar[i]=m.ChDiscard
+	for i := 0; i <= 31; i++ {
+		HandleChar[i] = m.ChDiscard
 	}
-	for i:=32;i<=127;i++ {
-		HandleChar[i]=m.ChNormal
+	HandleChar[0x09] = m.ChTab
+	for i := 32; i <= 127; i++ {
+		HandleChar[i] = m.ChNormal
 	}
 	for i:=128;i<=255;i++ {
 		HandleChar[i]=m.ChDiscard
@@ -128,8 +130,70 @@ func (m *MonCtx) ChDiscard(b byte, line *[]byte) []byte{
         return nil
 }
 
-func (m *MonCtx) ChEscape(b byte, line *[]byte) []byte{
-        debugPrint(log.Printf, levelInfo, "Escape enabled'\n")
+func (m *MonCtx) ChEscape(b byte, line *[]byte) []byte {
+	debugPrint(log.Printf, levelInfo, "Escape enabled'\n")
 	Escape = 2
-        return nil
+	return nil
+}
+
+func (m *MonCtx) commandNames() []string {
+	names := make([]string, 0, len(m.commands.commands))
+	for name := range m.commands.commands {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func longestCommonPrefix(a, b string) string {
+	i := 0
+	for i < len(a) && i < len(b) && a[i] == b[i] {
+		i++
+	}
+	return a[:i]
+}
+
+func (m *MonCtx) ChTab(b byte, line *[]byte) []byte {
+	lineStr := strings.TrimSpace(string(*line))
+	prefix := lineStr
+	rest := ""
+	if idx := strings.Index(lineStr, " "); idx >= 0 {
+		prefix = lineStr[:idx]
+		rest = lineStr[idx:]
+	}
+	all := m.commandNames()
+	var matches []string
+	for _, name := range all {
+		if strings.HasPrefix(name, prefix) {
+			matches = append(matches, name)
+		}
+	}
+	if len(matches) == 0 {
+		return nil
+	}
+	if len(matches) == 1 {
+		completion := matches[0]
+		if prefix == completion && (rest == "" || rest == " ") {
+			return nil
+		}
+		if rest == "" {
+			completion = completion + " "
+		}
+		*line = []byte(completion)
+		return []byte(completion[len(prefix):])
+	}
+	lcp := matches[0]
+	for i := 1; i < len(matches); i++ {
+		lcp = longestCommonPrefix(lcp, matches[i])
+	}
+	if len(prefix) < len(lcp) {
+		*line = []byte(lcp)
+		return []byte(lcp[len(prefix):])
+	}
+	out := "\r\n"
+	for _, name := range matches {
+		out += name + " "
+	}
+	out += "\r\n" + string(m.prompt) + string(*line)
+	return []byte(out)
 }
