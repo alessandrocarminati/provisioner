@@ -91,7 +91,7 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 	config.AddHostKey(private)
 
 
-	listener, err := net.Listen("tcp", ":"+sshcfg.Port)
+	listener, err := net.Listen("tcp4", "0.0.0.0:"+sshcfg.Port)
 	if err != nil {
 		debugPrint(log.Printf, levelPanic, "failed to listen for ssh: %s", err.Error())
 	}
