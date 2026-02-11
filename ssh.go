@@ -42,14 +42,14 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 	debugPrint(log.Printf, levelDebug, "request descr=%s", desc)
 	authorizedKeysBytes, err := os.ReadFile(sshcfg.Authorized_keys)
 	if err != nil {
-		debugPrint(log.Printf, levelPanic, "Failed to load authorized_keys, err: %s", err.Error())
+		log.Fatalf("SSH %s: failed to load authorized_keys: %v", desc, err)
 	}
 
 	authorizedKeysMap := map[string]bool{}
 	for len(authorizedKeysBytes) > 0 {
 		pubKey, comment, _, rest, err := ssh.ParseAuthorizedKey(authorizedKeysBytes)
 		if err != nil {
-			debugPrint(log.Printf, levelPanic, "Only one line per user, no extra lines: %s", err.Error())
+			log.Fatalf("SSH %s: invalid authorized_keys format: %v", desc, err)
 		}
 		debugPrint(log.Printf, levelDebug, "add key for %s", comment) //hex.EncodeToString(pubKey.Marshal())
 		GenAuth = append(GenAuth, DefAuth{
@@ -81,17 +81,17 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 
 	privateBytes, err := os.ReadFile(sshcfg.IdentitFn)
 	if err != nil {
-		debugPrint(log.Printf, levelPanic, "Failed to load private key: %s", err.Error())
+		log.Fatalf("SSH %s: failed to load private key: %v", desc, err)
 	}
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		debugPrint(log.Printf, levelPanic, "Failed to parse private key: %s", err.Error())
+		log.Fatalf("SSH %s: failed to parse private key: %v", desc, err)
 	}
 	config.AddHostKey(private)
 
 	listener, err := net.Listen("tcp4", "0.0.0.0:"+sshcfg.Port)
 	if err != nil {
-		debugPrint(log.Printf, levelPanic, "failed to listen for ssh: %s", err.Error())
+		log.Fatalf("SSH %s: failed to listen: %v", desc, err)
 	}
 	defer listener.Close()
 

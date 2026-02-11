@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"io/ioutil"
 	"os"
 )
@@ -50,6 +51,9 @@ func EncryptConfig(ConfigFN string, PubkeyFN string) ([]byte, error) {
 		return nil, err
 	}
 	publicKeyBlock, _ := pem.Decode(publicKeyPEM)
+	if publicKeyBlock == nil {
+		return nil, errors.New("failed to decode public key PEM: no block found")
+	}
 	publicKey, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
 	if err != nil {
 		return nil, err
@@ -87,6 +91,9 @@ func DecryptConfig(ConfigFN string, PivkeyFN string) ([]byte, error) {
 	}
 
 	privateKeyBlock, _ := pem.Decode(privateKeyPEM)
+	if privateKeyBlock == nil {
+		return nil, errors.New("failed to decode private key PEM: no block found")
+	}
 	privateKey, err := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
 	if err != nil {
 		return nil, err

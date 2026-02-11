@@ -10,15 +10,16 @@ var (
 	CursorPositionQ          = Sequence("\x1b[6n")
 	DeviceSpecsQ             = Sequence("\x1b[c")
 	PrimaryDeviceAttributesQ = Sequence("\x1b[0c")
-//	TestQ                    = Sequence("Bella")
+	//	TestQ                    = Sequence("Bella")
 	CursorPositionF          = Sequence("") // The intent here is to prevent client to answer late, because latency introduced by the tunnel
 	DeviceSpecsF             = Sequence("")
 	PrimaryDeviceAttributesF = Sequence("")
-//	TestF                    = Sequence("bella")
+	//	TestF                    = Sequence("bella")
 	CursorPositionA          = Sequence("\x1b[?25;80R") // provisional answer, 80x25
 	DeviceSpecsA             = Sequence("\x1b[?64;1;2;4;6;15;22c")
 	PrimaryDeviceAttributesA = Sequence("\x1b[?1;2c")
-//	TestA                    = Sequence("Dylan")
+
+// TestA                    = Sequence("Dylan")
 )
 
 type Sequence []byte
@@ -40,9 +41,9 @@ var (
 		[]Sequence{CursorPositionQ, DeviceSpecsQ, PrimaryDeviceAttributesQ},
 		[]Sequence{CursorPositionF, DeviceSpecsF, PrimaryDeviceAttributesF},
 		[]Sequence{CursorPositionA, DeviceSpecsA, PrimaryDeviceAttributesA},
-//		[]Sequence{TestQ},
-//		[]Sequence{TestF},
-//		[]Sequence{TestA},
+		//		[]Sequence{TestQ},
+		//		[]Sequence{TestF},
+		//		[]Sequence{TestA},
 	}
 )
 

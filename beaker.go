@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -89,14 +90,17 @@ func (c *CmdCtx) beakerSwitch(state string) error {
 	debugPrint(log.Printf, levelDebug, "RESPONSE:\n%s", string(respDump))
 
 	if resp.StatusCode != http.StatusFound {
-		return err
+		return fmt.Errorf("beaker login failed: expected redirect (302), got status %d", resp.StatusCode)
 	}
 
 	cookies := resp.Cookies()
+	if len(cookies) == 0 {
+		return errors.New("beaker login: no cookies in response")
+	}
 	for _, cookie := range cookies {
 		debugPrint(log.Printf, levelDebug, "Cookie: %s=%s\n", cookie.Name, cookie.Value)
 	}
-	cookie := resp.Cookies()[0]
+	cookie := cookies[0]
 
 	postURL := "https://" + baseurl + "/systems/" + device + "/commands/"
 

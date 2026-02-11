@@ -1,11 +1,11 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
-	"encoding/hex"
 	"sort"
 	"strconv"
 	"strings"
@@ -146,6 +146,9 @@ func (c *CmdCtx) exec_state(input string) string {
 	if err != nil {
 		return fmt.Sprintf("Argument error: %s\r\n", err.Error())
 	}
+	if pos < 0 || pos >= len(c.gwScr) {
+		return fmt.Sprintf("Argument error: position %d out of range [0,%d]\r\n", pos, len(c.gwScr)-1)
+	}
 	if c.gwScr[pos] == nil {
 		return fmt.Sprintf("The position %d is not available:\r\n", pos)
 	}
@@ -174,8 +177,11 @@ func (c *CmdCtx) exec_scr(input string) string {
 	if err != nil {
 		return fmt.Sprintf("Argument error: %s\r\n", err.Error())
 	}
+	if pos < 0 || pos >= len(c.gwScr) {
+		return fmt.Sprintf("Argument error: position %d out of range [0,%d]\r\n", pos, len(c.gwScr)-1)
+	}
 	if c.gwScr[pos] != nil {
-		return fmt.Sprintf("The position %d is not available\r\n", pos)
+		return fmt.Sprintf("The position %d is already in use\r\n", pos)
 	}
 
 	n, err := (*(*c).monitor).router.GetFreePos()
@@ -240,6 +246,9 @@ func (c *CmdCtx) exit(input string) string {
 	if err != nil {
 		return ret
 	}
+	if n < 0 || n >= len(sshChannelsMonitor) {
+		return "invalid argument: session index out of range\r\n"
+	}
 	chn := sshChannelsMonitor[n]
 	if chn != nil {
 		(*chn).Close()
@@ -265,6 +274,9 @@ func (c *CmdCtx) tterm(input string) string {
 	n, err := strconv.Atoi(input)
 	if err != nil {
 		return ret
+	}
+	if n < 0 || n >= len(sshChannelsSerial) {
+		return "invalid argument: session index out of range\r\n"
 	}
 	chn := sshChannelsSerial[n]
 	if chn != nil {
@@ -329,15 +341,19 @@ func (c *CmdCtx) FenceSwitch(state string) string {
 	var res string
 
 	pdu_type, ok := (*(*c).monitor).monitorConfig["pdu_type"]
-	if ok {
-		err := c.fences[pdu_type](state)
-		if err != nil {
-			res = err.Error()
-			return res
-		}
-		return "Command sent! It may take up to 10 seconds.\r\n"
+	if !ok {
+		return "unknown PDU type\r\n"
 	}
-	return "unknown PDU type\r\n"
+	fenceFn := c.fences[pdu_type]
+	if fenceFn == nil {
+		return fmt.Sprintf("unknown PDU type %q\r\n", pdu_type)
+	}
+	err := fenceFn(state)
+	if err != nil {
+		res = err.Error()
+		return res
+	}
+	return "Command sent! It may take up to 10 seconds.\r\n"
 }
 
 func (c *CmdCtx) ton(input string) string {
@@ -455,7 +471,7 @@ func (c *CmdCtx) Filter(input string) string {
 
 	cmd := parts[0]
 
-	debugPrint(log.Printf, /**/levelDebug, "requested command %s\n", cmd)
+	debugPrint(log.Printf /**/, levelDebug, "requested command %s\n", cmd)
 	switch cmd {
 	case "enable":
 		return c.enableFilter(router)
@@ -472,8 +488,8 @@ func (c *CmdCtx) Filter(input string) string {
 	case "add":
 		if len(parts) < 2 {
 			return "error: add requires format and sequences\r\n" +
-				   "usage: filter add ascii <received> [forwarded] [answered]\r\n" +
-				   "	   filter add hex <received_hex> [forwarded_hex] [answered_hex]\r\n"
+				"usage: filter add ascii <received> [forwarded] [answered]\r\n" +
+				"	   filter add hex <received_hex> [forwarded_hex] [answered_hex]\r\n"
 		}
 		return c.addFilterRule(router, parts[1:])
 
@@ -483,19 +499,19 @@ func (c *CmdCtx) Filter(input string) string {
 		}
 		return c.removeFilterRule(router, parts[1])
 	case "help":
-		return "available: enable, disable, default, show, add, remove, help\r\n"+
-			fmt.Sprintf("  %-20s %s\n\r", "enable :",  "Enables filters - Example: filter enable")+
-			fmt.Sprintf("  %-20s %s\n\r", "disable :", "Disables filters - Example: filter disable")+
-			fmt.Sprintf("  %-20s %s\n\r", "default :", "Restores filters default rules - Example: filter default")+
-			fmt.Sprintf("  %-20s %s\n\r", "show :",    "Shows current filter state and rules - Example: filter show")+
-			fmt.Sprintf("  %-20s %s\n\r", "add :",     "adds rules to filters - Example: filter add <ascii|hex> <rcv> <fwd|-> <ans|->")+
-			fmt.Sprintf("  %-20s %s\n\r", " Example >"," filter add hex 48656c6c6f 48656c6c6f 576f726c64")+
-			fmt.Sprintf("  %-20s %s\n\r", " Example >"," filter add ascii Hello Hello World")+
-			fmt.Sprintf("  %-20s %s\n\r", " Example >"," filter add ascii Hello Hello World")+
-			fmt.Sprintf("  %-20s %s\n\r", "remove :",  "removes rules to filters - Example: filter remove 5")+
-			fmt.Sprintf("  %-20s %s\n\r", "help :",    "this message")
+		return "available: enable, disable, default, show, add, remove, help\r\n" +
+			fmt.Sprintf("  %-20s %s\n\r", "enable :", "Enables filters - Example: filter enable") +
+			fmt.Sprintf("  %-20s %s\n\r", "disable :", "Disables filters - Example: filter disable") +
+			fmt.Sprintf("  %-20s %s\n\r", "default :", "Restores filters default rules - Example: filter default") +
+			fmt.Sprintf("  %-20s %s\n\r", "show :", "Shows current filter state and rules - Example: filter show") +
+			fmt.Sprintf("  %-20s %s\n\r", "add :", "adds rules to filters - Example: filter add <ascii|hex> <rcv> <fwd|-> <ans|->") +
+			fmt.Sprintf("  %-20s %s\n\r", " Example >", " filter add hex 48656c6c6f 48656c6c6f 576f726c64") +
+			fmt.Sprintf("  %-20s %s\n\r", " Example >", " filter add ascii Hello Hello World") +
+			fmt.Sprintf("  %-20s %s\n\r", " Example >", " filter add ascii Hello Hello World") +
+			fmt.Sprintf("  %-20s %s\n\r", "remove :", "removes rules to filters - Example: filter remove 5") +
+			fmt.Sprintf("  %-20s %s\n\r", "help :", "this message")
 	default:
-		debugPrint(log.Printf, /**/levelWarning, "No such command %s\n", cmd)
+		debugPrint(log.Printf /**/, levelWarning, "No such command %s\n", cmd)
 		return c.getFilterStatus(router)
 	}
 }
@@ -505,7 +521,7 @@ func (c *CmdCtx) getFilterStatus(router *Router) string {
 	enabled := router.Filter
 	router.FilterMu.RUnlock()
 
-	debugPrint(log.Printf, /**/levelDebug, "current state %t change to %t\n", enabled, !enabled)
+	debugPrint(log.Printf /**/, levelDebug, "current state %t change to %t\n", enabled, !enabled)
 	if enabled {
 		return "filter on\r\n"
 	}
@@ -516,16 +532,16 @@ func (c *CmdCtx) enableFilter(router *Router) string {
 	router.FilterMu.Lock()
 	defer router.FilterMu.Unlock()
 
-	debugPrint(log.Printf, /**/levelDebug, "filter is going live\n")
+	debugPrint(log.Printf /**/, levelDebug, "filter is going live\n")
 
 	if router.outgoingFilter == nil {
-		debugPrint(log.Printf, /**/levelDebug, "filter outgoing rules needs to be created\n")
+		debugPrint(log.Printf /**/, levelDebug, "filter outgoing rules needs to be created\n")
 		router.outgoingFilter = &StreamFilter{
 			rules: copyFilterRule(defaultFilterRule),
 		}
 	}
 	if router.incomingFilter == nil {
-		debugPrint(log.Printf, /**/levelDebug, "filter incoming rules needs to be created\n")
+		debugPrint(log.Printf /**/, levelDebug, "filter incoming rules needs to be created\n")
 		router.incomingFilter = &StreamFilter{
 			rules: copyFilterRule(defaultFilterRule),
 		}
@@ -540,7 +556,7 @@ func (c *CmdCtx) disableFilter(router *Router) string {
 	router.Filter = false
 	router.FilterMu.Unlock()
 
-	debugPrint(log.Printf, /**/levelDebug, "filter is going down\n")
+	debugPrint(log.Printf /**/, levelDebug, "filter is going down\n")
 	return "filter disabled\r\n"
 }
 
@@ -548,7 +564,7 @@ func (c *CmdCtx) resetToDefault(router *Router) string {
 	router.FilterMu.Lock()
 	defer router.FilterMu.Unlock()
 
-	debugPrint(log.Printf, /**/levelDebug, "set filter rules to default\n")
+	debugPrint(log.Printf /**/, levelDebug, "set filter rules to default\n")
 
 	if router.outgoingFilter != nil {
 		router.outgoingFilter.mu.Lock()
@@ -626,8 +642,8 @@ func (c *CmdCtx) formatFilterRules(rules *FilterRule) string {
 func (c *CmdCtx) addFilterRule(router *Router, args []string) string {
 	if len(args) < 2 {
 		return "error: insufficient arguments\r\n" +
-			   "usage: filter add ascii <received> [forwarded] [answered]\r\n" +
-			   "	   filter add hex <received_hex> [forwarded_hex] [answered_hex]\r\n"
+			"usage: filter add ascii <received> [forwarded] [answered]\r\n" +
+			"	   filter add hex <received_hex> [forwarded_hex] [answered_hex]\r\n"
 	}
 
 	format := args[0]
@@ -831,6 +847,8 @@ func (c *CmdCtx) log_serial(input string) string {
 		f, err := os.Create(input)
 		if err != nil {
 			debugPrint(log.Printf, levelError, "Can't create file %s: %s", input, err.Error())
+			log_serial_in_progress = false
+			return
 		}
 		defer f.Close()
 
