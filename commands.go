@@ -116,6 +116,26 @@ func command_init(monitor *MonCtx, maxFences, maxScrSess int) (*CmdCtx) {
 		HelpText: "Requires serila log subsystem to stop.",
 		Handler: c.log_serial_stop,
 	}
+	c.commands["send_serial"]=Command{
+		Name: "send_serial",
+		HelpText: "send file over serial: send_serial <file> <plain|gzip|xmodem_unix|xmodem_uboot> [dest_path]",
+		Handler: c.send_serial,
+	}
+	c.commands["board_stat"]=Command{
+		Name: "board_stat",
+		HelpText: "report last goinit board stat; board must have printed PROVISIONER_MGMT_*",
+		Handler: c.board_stat,
+	}
+	c.commands["ansi"]=Command{
+		Name: "ansi",
+		HelpText: "ANSI DSR/DA filter: ansi [on|off] inject reply to board, drop client's late reply. Default on.",
+		Handler: c.ansiFilter,
+	}
+	c.commands["send_serial_deps"]=Command{
+		Name: "send_serial_deps",
+		HelpText: "check remote deps for send_serial plain/gzip: stty, dd, base64, gzip, rm (or busybox).",
+		Handler: c.send_serial_deps,
+	}
 
 	return c
 }
@@ -345,6 +365,105 @@ func (c *CmdCtx) echoCmd(input string) string{
 func (c *CmdCtx) log_serial_stop(input string) string{
 	log_serial_in_progress=false
 	return fmt.Sprintf("Sent request to stop logging.\r\n")
+}
+
+func (c *CmdCtx) send_serial(input string) string {
+	parts := strings.SplitN(strings.TrimSpace(input), " ", 3)
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+		return "send_serial <file> <plain|gzip|xmodem_unix|xmodem_uboot> [dest_path]\r\n"
+	}
+	localPath := parts[0]
+	mode := strings.ToLower(parts[1])
+	destPath := ""
+	if len(parts) >= 3 {
+		destPath = strings.TrimSpace(parts[2])
+	}
+	validModes := map[string]bool{"plain": true, "gzip": true, "xmodem_unix": true, "xmodem_uboot": true}
+	if !validModes[mode] {
+		return fmt.Sprintf("send_serial: invalid mode %q (use: plain, gzip, xmodem_unix, xmodem_uboot)\r\n", mode)
+	}
+	if _, err := os.Stat(localPath); err != nil {
+		return fmt.Sprintf("send_serial: %s\r\n", err.Error())
+	}
+
+	router := (*(*c).monitor).router
+	n, err := router.GetFreePos()
+	if err != nil {
+		return fmt.Sprintf("send_serial: no free channel: %s\r\n", err.Error())
+	}
+	if err := router.AttachAt(n, SrcHuman); err != nil {
+		return fmt.Sprintf("send_serial: attach: %s\r\n", err.Error())
+	}
+	defer router.DetachAt(n)
+
+	serialIO := &SerialIO{In: router.In[n], Out: router.Out[n]}
+	if err := SendFile(serialIO, localPath, mode, destPath); err != nil {
+		return fmt.Sprintf("send_serial: %s\r\n", err.Error())
+	}
+	return "send_serial: done.\r\n"
+}
+
+func (c *CmdCtx) board_stat(input string) string {
+	boardIP, boardIf, statJSON, lastTime, ok := GetBoardStat()
+	if !ok {
+		return "board_stat: no board IP or stat yet (watch serial for PROVISIONER_MGMT_IP= from goinit).\r\n"
+	}
+	var out strings.Builder
+	out.WriteString(fmt.Sprintf("board %s (if %s) last=%s\r\n", boardIP, boardIf, lastTime.Format(time.RFC3339)))
+	if len(statJSON) == 0 {
+		out.WriteString("(no stat polled yet)\r\n")
+		return out.String()
+	}
+	var pretty json.RawMessage
+	if err := json.Unmarshal(statJSON, &pretty); err != nil {
+		out.WriteString(string(statJSON))
+		out.WriteString("\r\n")
+		return out.String()
+	}
+	indented, _ := json.MarshalIndent(pretty, "", "  ")
+	out.Write(indented)
+	out.WriteString("\r\n")
+	return out.String()
+}
+
+func (c *CmdCtx) send_serial_deps(input string) string {
+	router := (*(*c).monitor).router
+	n, err := router.GetFreePos()
+	if err != nil {
+		return fmt.Sprintf("send_serial_deps: no free channel: %s\r\n", err.Error())
+	}
+	if err := router.AttachAt(n, SrcHuman); err != nil {
+		return fmt.Sprintf("send_serial_deps: attach: %s\r\n", err.Error())
+	}
+	defer router.DetachAt(n)
+	serialIO := &SerialIO{In: router.In[n], Out: router.Out[n]}
+	result, _ := CheckSerialDeps(serialIO)
+	switch result {
+	case "ok":
+		return "send_serial_deps: ok (stty, dd, base64, gzip, rm available on board).\r\n"
+	case "missing":
+		return "send_serial_deps: missing (board needs stty, dd, base64, gzip, rm or busybox).\r\n"
+	default:
+		return "send_serial_deps: timeout (no reply; run on board: command -v stty dd base64 gzip rm).\r\n"
+	}
+}
+
+func (c *CmdCtx) ansiFilter(input string) string {
+	router := (*(*c).monitor).router
+	arg := strings.TrimSpace(strings.ToLower(input))
+	switch arg {
+	case "on":
+		router.SetANSIFilter(true)
+		return "ansi filter on\r\n"
+	case "off":
+		router.SetANSIFilter(false)
+		return "ansi filter off\r\n"
+	default:
+		if router.ANSIFilterEnabled() {
+			return "ansi filter on\r\n"
+		}
+		return "ansi filter off\r\n"
+	}
 }
 
 func (c *CmdCtx) log_serial(input string) string{
