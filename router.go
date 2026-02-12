@@ -19,7 +19,7 @@ type Router struct {
 	In       []chan byte
 	Out      []chan byte
 	SrcType  []SType
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	LEnter   int
 }
 
@@ -80,27 +80,41 @@ func (r *Router)DetachAt(pos int) error{
 	return nil
 }
 func (r *Router)Brodcast(excluded int, data byte) {
+	debugPrint(log.Printf, levelCrazy, "Broadcast: collecting channels enter\n")
+	r.mu.RLock()
+	targets := make([]int, 0, len(r.SrcType))
 	for i, ch := range r.SrcType{
-		if ch==SrcHuman {
-			if i!= excluded {
-				select {
-				case r.In[i] <- data:
-					debugPrint(log.Printf, levelCrazy, "Broadcast: send %d  to %d\n", data, i)
-				default: // drop 
-				}
-			}
+		if ch == SrcHuman && i!= excluded {
+			targets = append(targets, i)
+		}
+	}
+	r.mu.RUnlock()
+	debugPrint(log.Printf, levelCrazy, "Broadcast: collecting channels out (%v)\n", targets)
+	for _, i := range targets {
+		select {
+			case r.In[i] <- data:
+				debugPrint(log.Printf, levelCrazy, "Broadcast: send %d  to %d\n", data, i)
+			default: // drop 
 		}
 	}
 }
 
 func (r *Router)Unicast(data byte) {
+	debugPrint(log.Printf, levelCrazy, "Unicast: collecting channels enter\n")
+	r.mu.RLock()
+	targets := make([]int, 0, len(r.SrcType))
 	for i, ch := range r.SrcType{
 		if ch==SrcMachine  {
-			select {
+			targets = append(targets, i)
+		}
+	}
+	r.mu.RUnlock()
+	debugPrint(log.Printf, levelCrazy, "Unicast: collecting channels exit (%v)\n", targets)
+	for _, i := range targets {
+		select {
 			case r.In[i] <- data:
 				debugPrint(log.Printf, levelCrazy, "Unicast: send %d  to %d\n", data, i)
 			default: // drop 
-			}
 		}
 	}
 }
@@ -111,9 +125,10 @@ func (r *Router) Router() {
 	for i := range r.Out {
 		go func(idx int) {
 			for data := range r.Out[idx] {
-				r.mu.Lock()
+				debugPrint(log.Printf, levelCrazy, "RouterLoop.\n")
+				r.mu.RLock()
 				st := r.SrcType[idx]
-				r.mu.Unlock()
+				r.mu.RUnlock()
 				if st == SrcNone {
 					// skip if free (could log)
 					continue
