@@ -320,11 +320,7 @@ func (e *Executor) Execute(limit int) error {
 			reg, _ := getRegisterIndex(instr.Args[0])
 			Regex := regexp.MustCompile(e.registers[reg])
 			Matches := Regex.FindStringSubmatch(e.accumulator)
-			if len(Matches) > 1 {
-				e.flag = true
-			} else {
-				e.flag = false
-			}
+			e.flag = len(Matches) > 0
 		case Append:
 			reg, _ := getRegisterIndex(instr.Args[0])
 			e.registers[reg] += e.accumulator
