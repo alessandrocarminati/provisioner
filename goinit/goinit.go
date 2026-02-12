@@ -112,10 +112,12 @@ func main() {
 		}
 	}
 
+	var mgmtReady chan struct{}
 	ifName, ok := config["pr.ifname"]
 	if ok {
 		if slices.Contains(sysIfs, ifName) {
-			go dhcpFetch(ifName, c, msgs)
+			mgmtReady = make(chan struct{})
+			go dhcpFetch(ifName, c, msgs, mgmtReady)
 			config["hasif"]="ok"
 		}
 	}
@@ -139,38 +141,35 @@ func main() {
 		msgs <- logbuf.LogSprintf(logbuf.LevelWarning, "No action!!!")
 	}
 
+	_, ok = config["pr.reboot"]
+	if ok {
+		resetSystem(msgs, config)
+	}
+
+	// Wait for management interface to be up so we can start the control API and report IP at boot end.
+	if mgmtReady != nil {
+		<-mgmtReady
+		// Boot end: print management IP so provisioner can parse (e.g. from serial/syslog).
+		if MgmtIP != "" || MgmtIfName != "" {
+			fmt.Fprintf(os.Stdout, "%s_IF=%s\n%s_IP=%s\n", ProvisionerMgmtPrefix, MgmtIfName, ProvisionerMgmtPrefix, MgmtIP)
+		}
+		// Start HTTP control server (board controllable once booted).
+		apiPort := "8080"
+		if p, ok := config["pr.apiPort"]; ok && p != "" {
+			apiPort = p
+		}
+		_ = StartHTTPServer(":" + apiPort)
+	}
+
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
-
 	signal.Notify(sigs, syscall.SIGINT)
-
 	go func() {
 		sig := <-sigs
 		fmt.Println()
 		msgs <- logbuf.LogSprintf(logbuf.LevelWarning, "Received %s, exiting...", sig)
 		done <- true
 	}()
-
-
-	_, ok = config["pr.reboot"]
-        if ok {
-		resetSystem(msgs, config)
-                }
-
-
-
-/*	devices, err := listBlockDevices()
-	if err != nil {
-//		msgs <- logbuf.LogSprintf(logbuf.LevelWarning, "Error:", err)
-		panic(err)
-	}
-
-	msgs <- logbuf.LogSprintf(logbuf.LevelWarning, "Block Devices:")
-	for _, device := range devices {
-		msgs <- logbuf.LogSprintf(logbuf.LevelWarning, device)
-	}*/
-
-
 
 	fmt.Println("Press Ctrl-C to exit...")
 	<-done

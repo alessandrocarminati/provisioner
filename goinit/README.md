@@ -55,6 +55,24 @@ Supported Kernel Arguments
 * `pr.actionArgx`: Represents arguments passed to the action specified by pr.action.
 * `pr.debuglevel`: Adjusts the debug level of goinit.
 * `pr.reboot`: Instructs goinit to reboot the system after completing its tasks.
-[Insert additional usage instructions or examples here]
+* `pr.apiPort`: Port for the HTTP control API (default: 8080). Used only when `pr.ifname` is set.
+
+### Control API (when management interface is up)
+
+After boot, if `pr.ifname` is set and DHCP succeeds, goinit starts a small HTTP server so the board is controllable:
+
+* **GET /api/stat** — Returns a JSON summary: CPU, memory, storage (SCSI/solid/raw block devices), and network (interfaces and management IP).
+* **GET /api/read?device=/dev/sda** — Reads the given block device and returns its contents (e.g. save to file).
+* **POST /api/write?device=/dev/sda** — Writes the request body to the given block device (e.g. flash an image).
+* **POST /api/reboot** — Reboots the board.
+
+### Reporting management IP to provisioner
+
+At boot end (after DHCP and before waiting for Ctrl-C), goinit prints on **stdout** two lines in a fixed format so the provisioner can parse them (e.g. from serial or syslog):
+
+```
+PROVISIONER_MGMT_IF=<interface name>
+PROVISIONER_MGMT_IP=<assigned IP>
+```
 
 `goinit` is developed as part of the automation process for the provisioner tool, serving as the provisioner agent on the board.

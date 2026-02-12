@@ -2,19 +2,26 @@ package main
 import (
 	"fmt"
 	"net"
-	logbuf "pippo.com/goinit/logbuf"
-	"pippo.com/goinit/dhclient"
 	"os"
-	"github.com/google/gopacket/layers"
-	"github.com/vishvananda/netlink"
-	"io/ioutil"
 	"regexp"
 	"strconv"
 	syslog "log/syslog"
+
+	"github.com/google/gopacket/layers"
+	"github.com/vishvananda/netlink"
+	logbuf "pippo.com/goinit/logbuf"
+	"pippo.com/goinit/dhclient"
+	"io/ioutil"
 )
 
+// MgmtIP and MgmtIfName are set when DHCP lease is bound (management interface).
+var MgmtIP, MgmtIfName string
 
-func dhcpFetch(ifname string, terminate chan int, msgs chan string) {
+// Provisioner stdout marker so provisioner can parse the management IP (e.g. from serial/syslog).
+const ProvisionerMgmtPrefix = "PROVISIONER_MGMT"
+
+
+func dhcpFetch(ifname string, terminate chan int, msgs chan string, mgmtReady chan struct{}) {
 
 	ifacen, err := netlink.LinkByName(ifname)
 	if err != nil {
@@ -38,9 +45,8 @@ func dhcpFetch(ifname string, terminate chan int, msgs chan string) {
 	client := dhclient.Client{
 		Iface: iface, OnBound: func(lease *dhclient.Lease) {
 			msgs <- logbuf.LogSprintf(logbuf.LevelNotice, "Assigned address: %s", lease.FixedAddress)
-//			fmt.Println(lease)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//			fmt.Println("seting ip address")
+			MgmtIfName = ifname
+			MgmtIP = lease.FixedAddress.String()
 			ip := net.IPNet{IP: lease.FixedAddress, Mask: lease.Netmask}
 			gateway := lease.Router[0]
 			link, err := netlink.LinkByName(ifname)
@@ -51,7 +57,6 @@ func dhcpFetch(ifname string, terminate chan int, msgs chan string) {
 			if err := netlink.AddrAdd(link, addr); err != nil {
 				msgs <- logbuf.LogSprintf(logbuf.LevelError, "Failed to set IP address:", err)
 			}
-//			fmt.Println("seting default route:", lease.Router[0])
 			defaultRoute := netlink.Route{
 				LinkIndex: link.Attrs().Index,
 				Gw:        gateway,
@@ -59,8 +64,10 @@ func dhcpFetch(ifname string, terminate chan int, msgs chan string) {
 			if err := netlink.RouteAdd(&defaultRoute); err != nil {
 				msgs <- logbuf.LogSprintf(logbuf.LevelError, "Failed to add default route:", err)
 			}
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
 			startmsg <- true
+			if mgmtReady != nil {
+				close(mgmtReady)
+			}
 		},
 	}
 	for _, param := range dhclient.DefaultParamsRequestList {
