@@ -1,13 +1,14 @@
 package main
 
 import (
-        "log"
+	"encoding/json"
+	"fmt"
+	"log"
 	"os"
-	"time"
-        "fmt"
-        "sort"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type CommandFunction func(string) string

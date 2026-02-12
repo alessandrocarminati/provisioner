@@ -191,7 +191,7 @@ func main() {
 
 	go SerialHandler(config.SerialConfig.Port, config.SerialConfig.BaudRate, serialRouter.In[0], serialRouter.Out[0])
 	go SSHHandler(config.SSHSerTun, "tunnel", serialRouter, false)
-
+	go StartBoardWatcher(serialRouter)
 
 	monitorRouter := NewRouter(config.Router.MonitorChans)
 	monitorRouter.Router()
