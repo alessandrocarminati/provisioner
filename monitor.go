@@ -25,6 +25,7 @@ func (m *MonCtx) HandleCharInit(){
 	}
 	HandleChar[0x03] = m.ChCtrlC
 	HandleChar[0x09] = m.ChTab
+	HandleChar[0x17] = m.ChCtrlW
 	for i := 32; i <= 127; i++ {
 		HandleChar[i] = m.ChNormal
 	}
@@ -158,6 +159,20 @@ func (m *MonCtx) ChCtrlC(b byte, line *[]byte) []byte {
 	debugPrint(log.Printf, levelDebug, "Drop the line'\n")
 	*line = []byte{}
 	return []byte("\r\n" + string(m.prompt))
+
+}
+
+func (m *MonCtx) ChCtrlW(b byte, line *[]byte) []byte {
+	debugPrint(log.Printf, levelDebug, "kill the line'\n")
+	n := len(*line)
+	*line = []byte{}
+	out := make([]byte, 0, n*3+1+len(m.prompt))
+	for i := 0; i<n; i++ {
+		out = append(out, 8, 32, 8)
+	}
+	out = append(out, '\r')
+	out = append(out, m.prompt...)
+	return out
 
 }
 
