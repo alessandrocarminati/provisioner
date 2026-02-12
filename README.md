@@ -8,7 +8,7 @@ be self-contained, providing a seamless experience for efficiently managing
 and provisioning resources. It acts as a single "sidekick" per board (one
 board, one provisioner).
 
-![image info](./imgs/provisioner.drawio.png)
+![image info](./imgs/pic.png)
 
 ---
 
