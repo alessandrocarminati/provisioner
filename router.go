@@ -21,21 +21,43 @@ type Router struct {
 	SrcType  []SType
 	mu       sync.RWMutex
 	LEnter   int
+	// ANSI: board sends queries (DSR/DA); we inject a synthetic reply to the board so it doesn't wait; we drop the client's late reply so the board doesn't echo it as input (avoids boot interrupt over tunnel). Pluggable via monitor command "ansi on|off".
+	ansiFilter    bool
+	ansiMu        sync.RWMutex
+	outgoingANSI  []*OutgoingANSI
+	incomingANSI  *IncomingANSI
 }
-
 
 func NewRouter(n int) *Router {
 	r := &Router{
-		In:  make([]chan byte, n),
-		Out: make([]chan byte, n),
-		SrcType: make([]SType, n),
+		In:           make([]chan byte, n),
+		Out:          make([]chan byte, n),
+		SrcType:      make([]SType, n),
+		ansiFilter:   true, // on by default to avoid U-Boot menu / boot interrupt over tunnel
+		outgoingANSI: make([]*OutgoingANSI, n),
+		incomingANSI: &IncomingANSI{},
 	}
-	for i:=0; i<n; i++ {
-		r.In[i]=make(chan byte, 4096)
-		r.Out[i]=make(chan byte, 4096)
-		r.SrcType[i]=SrcNone
+	for i := 0; i < n; i++ {
+		r.In[i] = make(chan byte, 4096)
+		r.Out[i] = make(chan byte, 4096)
+		r.SrcType[i] = SrcNone
+		r.outgoingANSI[i] = &OutgoingANSI{}
 	}
 	return r
+}
+
+// SetANSIFilter enables or disables the ANSI DSR/DA filter (inject reply to board, drop client's late reply). Toggled via monitor command "ansi on|off".
+func (r *Router) SetANSIFilter(on bool) {
+	r.ansiMu.Lock()
+	r.ansiFilter = on
+	r.ansiMu.Unlock()
+}
+
+// ANSIFilterEnabled returns whether the ANSI filter is active.
+func (r *Router) ANSIFilterEnabled() bool {
+	r.ansiMu.RLock()
+	defer r.ansiMu.RUnlock()
+	return r.ansiFilter
 }
 
 func (r *Router) GetFreePos() (int, error) {
@@ -140,9 +162,32 @@ func (r *Router) Router() {
 						r.LEnter = idx
 						r.mu.Unlock()
 					}
-					r.Unicast(data) // forwards to SrcMachine
+					r.ansiMu.RLock()
+					useANSI := r.ansiFilter
+					r.ansiMu.RUnlock()
+					if useANSI {
+						toForward := r.outgoingANSI[idx].Feed(data)
+						for _, b := range toForward {
+							r.Unicast(b)
+						}
+					} else {
+						r.Unicast(data)
+					}
 				} else if st == SrcMachine {
-					r.Brodcast(idx, data) // forwards to SrcHuman(s)
+					r.ansiMu.RLock()
+					useANSI := r.ansiFilter
+					r.ansiMu.RUnlock()
+					if useANSI {
+						toBroadcast, injectToBoard := r.incomingANSI.Feed(data)
+						for _, b := range toBroadcast {
+							r.Brodcast(idx, b)
+						}
+						for _, b := range injectToBoard {
+							r.Unicast(b)
+						}
+					} else {
+						r.Brodcast(idx, data)
+					}
 				}
 			}
 			debugPrint(log.Printf, levelDebug, "out channel %d closed, worker exit", idx)
