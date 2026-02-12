@@ -1,53 +1,77 @@
 # Provisioner Project
 
 ## Description
+
 The Provisioner project aims to develop a comprehensive provisioning sharing
-application for common u-boot based boards.
-This application is designed to be self-contained, providing a seamless
-experience for efficiently managing and provisioning resources.
+application for common u-boot based boards. This application is designed to
+be self-contained, providing a seamless experience for efficiently managing
+and provisioning resources. It acts as a single "sidekick" per board (one
+board, one provisioner).
 
 ![image info](./imgs/provisioner.drawio.png)
 
-Key functionalities of the final tool are outlined below:
+---
 
-## Serial Connection Management:
-The application takes ownership of the serial connection to the serial 
-console of the board and extends access externally through SSH.
+## Key Functionality
 
-## Control Plane via SSH:
-A control plane accessible through SSH is implemented, serving as a CLI for
-board management. Additionally, it facilitates various utilities, including
-power management controls for the board.
+### Serial connection management
+The application takes ownership of the serial connection to the board's
+console and extends access externally through SSH (tunnel and monitor
+sessions).
 
-## TFTP Service for Kernel Image Provisioning:
-Incorporates a TFTP service within the application to facilitate efficient
-provisioning of kernel images. This service ensures seamless transfer and
-deployment of kernel images to the respective boards.
+### Control plane via SSH
+A control plane accessible through SSH serves as a CLI for board management:
+power control (PDU via SNMP, Tasmota, or Beaker), user enable/disable for
+the tunnel, script execution, serial logging, and file transfer over serial.
 
-## HTTP Service for Binary Artifact Provisioning:
-Integration of a per-user HTTP service dedicated to serving binary artifacts
-such as root file system (rootfs) images, kernel images, and device trees.
-This service enhances accessibility and facilitates the distribution of
-essential resources required for board provisioning.
+### TFTP and HTTP services
+- **TFTP**: Kernel image provisioning; supports local files and HTTP proxy
+  (e.g. `http___...` filenames).
+- **HTTP**: Serves binary artifacts (rootfs, kernel, device trees) from a
+  configurable directory.
 
-## Integration with Google Calendar:
-Implementation of integration with Google Calendar to enable access control
-and reservations. This functionality ensures efficient resource allocation
-and scheduling, enhancing the overall management of board provisioning
-processes.
+### Google Calendar integration
+Optional integration for access control and reservations (calendar poller
+and ACL).
 
-## Kernel Image:
-Crafts a kernel image that embeds the initram equipped with scripts capable
-of flashing a new kernel image and/or rootfs image, driven by kernel
-arguments.
+### Kernel image and goinit
+A kernel image embeds an initram with scripts for flashing; a companion
+**goinit** component can act as a flasher agent on the board.
 
-The successful implementation of these features will result in a robust
-provisioning sharing application tailored specifically for common u-boot
-based boards.
-This tool will streamline provisioning processes, enhance accessibility,
-and improve overall management efficiency.
+## Recent changes and features
 
-## Additional Information:
-The final product is meant to interact with the board using expect-based
-scripts and a companion application acting as an init Linux prepared to
-act as a flasher agent within the board.
+- **Monitor CLI:** currently supports:
+    - Tab **autocomplete** for commands;
+    - **Ctrl-C** cancels the current line;
+    - **Ctrl-W** kills the entire line.
+- **Send file over serial:** `send_serial <file> <mode> [dest_path]` with 
+  modes **plain** (base64), **gzip** (base64 + gzip), 
+  **xmodem_unix** (e.g. `rx` on the board), **xmodem_uboot** (`loadx`). 
+  Provisioner issues the remote command and runs the transfer; if the receiver
+  does not respond (e.g. no NAK/CRC for XMODEM), an error is returned.
+  Dependencies (stty, base64, gunzip, rx) are the user's responsibility.
+
+## Scripting: assm vs exec_scr
+
+The tool supports two ways to automate interaction with the serial console:
+
+### Native scripts (assm)
+- **assm** is a small assembly-like language (see `scripts/`).
+  Scripts wait for suffixes (e.g. "login : ", "assword: "), then send
+  predefined strings.
+ Execution is character-oriented (one byte per `fetch`).
+- **Recommendation:** Prefer **assm for expect-style flows** (login, wait for
+  prompt, send response).
+  It is designed for that pattern and avoids the need to write 
+  character-oriented code in a general-purpose language.
+
+### External scripts (exec_scr)
+- **exec_scr** runs an external executable (any language) and connects its 
+  stdin/stdout to the serial stream. You choose **line** or **char** mode when
+  invoking:
+    - **line**: Provisioner sends data to the script only when a line is complete
+      (after Enter). The script can use normal line-based I/O (`readline()`, 
+      `input()`, etc.).
+    - **char**: Provisioner sends every byte as it arrives. The script must read
+      byte-by-byte, buffer, and match patterns (expect-style); this is not a common
+      pattern in most languages.
