@@ -1,11 +1,12 @@
 package main
 
 import (
-//	"fmt"
-	"sync"
+	//	"fmt"
 	"errors"
 	"log"
+	"sync"
 )
+
 type SType int
 
 const (
@@ -16,73 +17,75 @@ const (
 )
 
 type Router struct {
-	In       []chan byte
-	Out      []chan byte
-	SrcType  []SType
-	mu       sync.RWMutex
-	LEnter   int
-	// ANSI: board sends queries (DSR/DA); we inject a synthetic reply to the board so it doesn't wait; we drop the client's late reply so the board doesn't echo it as input (avoids boot interrupt over tunnel). Pluggable via monitor command "ansi on|off".
-	ansiFilter    bool
-	ansiMu        sync.RWMutex
-	outgoingANSI  []*OutgoingANSI
-	incomingANSI  *IncomingANSI
+	In             []chan byte
+	Out            []chan byte
+	SrcType        []SType
+	mu             sync.RWMutex
+	LEnter         int
+	Filter         bool
+	FilterMu       sync.RWMutex
+	outgoingFilter *StreamFilter
+	incomingFilter *StreamFilter
 }
 
 func NewRouter(n int) *Router {
 	r := &Router{
-		In:           make([]chan byte, n),
-		Out:          make([]chan byte, n),
-		SrcType:      make([]SType, n),
-		ansiFilter:   true, // on by default to avoid U-Boot menu / boot interrupt over tunnel
-		outgoingANSI: make([]*OutgoingANSI, n),
-		incomingANSI: &IncomingANSI{},
+		In:      make([]chan byte, n),
+		Out:     make([]chan byte, n),
+		SrcType: make([]SType, n),
+		Filter:  true,
+		outgoingFilter: &StreamFilter{
+			buf:   make([]byte, 0, 1024),
+			rules: defaultFilterRule,
+		},
+		incomingFilter: &StreamFilter{
+			buf:   make([]byte, 0, 1024),
+			rules: defaultFilterRule,
+		},
 	}
 	for i := 0; i < n; i++ {
 		r.In[i] = make(chan byte, 4096)
 		r.Out[i] = make(chan byte, 4096)
 		r.SrcType[i] = SrcNone
-		r.outgoingANSI[i] = &OutgoingANSI{}
 	}
 	return r
 }
 
-// SetANSIFilter enables or disables the ANSI DSR/DA filter (inject reply to board, drop client's late reply). Toggled via monitor command "ansi on|off".
-func (r *Router) SetANSIFilter(on bool) {
-	r.ansiMu.Lock()
-	r.ansiFilter = on
-	r.ansiMu.Unlock()
+func (r *Router) SetFilter(on bool) {
+	r.FilterMu.Lock()
+	r.Filter = on
+	r.FilterMu.Unlock()
 }
 
-// ANSIFilterEnabled returns whether the ANSI filter is active.
-func (r *Router) ANSIFilterEnabled() bool {
-	r.ansiMu.RLock()
-	defer r.ansiMu.RUnlock()
-	return r.ansiFilter
+func (r *Router) FilterEnabled() bool {
+	r.FilterMu.RLock()
+	defer r.FilterMu.RUnlock()
+	return r.Filter
 }
 
 func (r *Router) GetFreePos() (int, error) {
-    r.mu.Lock()
-    defer r.mu.Unlock()
-    for i, item := range r.SrcType {
-        if item == SrcNone {
-            return i, nil
-        }
-    }
-    return -1, errors.New("No channel available")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, item := range r.SrcType {
+		if item == SrcNone {
+			return i, nil
+		}
+	}
+	return -1, errors.New("No channel available")
 }
 
-func (r *Router)AttachAt(pos int, stype SType) error{
+func (r *Router) AttachAt(pos int, stype SType) error {
 	r.mu.Lock()
 	debugPrint(log.Printf, levelDebug, "Router channel %d attached type=%d\n", pos, stype)
 	defer r.mu.Unlock()
 	if r.SrcType[pos] != SrcNone {
 		return errors.New("Channel is not available")
 	}
-	r.SrcType[pos]=stype
+	r.SrcType[pos] = stype
 	return nil
 }
 
-func (r *Router)indexOfIn(targetChannel chan byte) int {
+func (r *Router) indexOfIn(targetChannel chan byte) int {
 	for i, ch := range r.In {
 		if ch == targetChannel {
 			return i
@@ -91,22 +94,31 @@ func (r *Router)indexOfIn(targetChannel chan byte) int {
 	return -1
 }
 
-func (r *Router)DetachAt(pos int) error{
+func (r *Router) DetachAt(pos int) error {
 	r.mu.Lock()
 	debugPrint(log.Printf, levelDebug, "Router channel %d detached\n", pos)
 	defer r.mu.Unlock()
-	if r.SrcType[pos]  == SrcNone {
+	if r.SrcType[pos] == SrcNone {
 		return errors.New("Channel is already free")
 	}
-	r.SrcType[pos]=SrcNone
+	r.SrcType[pos] = SrcNone
 	return nil
 }
-func (r *Router)Brodcast(excluded int, data byte) {
+
+func (r *Router) Feedback(origin int, data byte) {
+	select {
+	case r.In[origin] <- data:
+		debugPrint(log.Printf, levelCrazy, "Feedback: send %d  to %d\n", data, origin)
+	default: // drop
+	}
+}
+
+func (r *Router) Brodcast(excluded int, data byte) {
 	debugPrint(log.Printf, levelCrazy, "Broadcast: collecting channels enter\n")
 	r.mu.RLock()
 	targets := make([]int, 0, len(r.SrcType))
-	for i, ch := range r.SrcType{
-		if ch == SrcHuman && i!= excluded {
+	for i, ch := range r.SrcType {
+		if ch == SrcHuman && i != excluded {
 			targets = append(targets, i)
 		}
 	}
@@ -114,19 +126,19 @@ func (r *Router)Brodcast(excluded int, data byte) {
 	debugPrint(log.Printf, levelCrazy, "Broadcast: collecting channels out (%v)\n", targets)
 	for _, i := range targets {
 		select {
-			case r.In[i] <- data:
-				debugPrint(log.Printf, levelCrazy, "Broadcast: send %d  to %d\n", data, i)
-			default: // drop 
+		case r.In[i] <- data:
+			debugPrint(log.Printf, levelCrazy, "Broadcast: send %d  to %d\n", data, i)
+		default: // drop
 		}
 	}
 }
 
-func (r *Router)Unicast(data byte) {
+func (r *Router) Unicast(data byte) {
 	debugPrint(log.Printf, levelCrazy, "Unicast: collecting channels enter\n")
 	r.mu.RLock()
 	targets := make([]int, 0, len(r.SrcType))
-	for i, ch := range r.SrcType{
-		if ch==SrcMachine  {
+	for i, ch := range r.SrcType {
+		if ch == SrcMachine {
 			targets = append(targets, i)
 		}
 	}
@@ -134,9 +146,9 @@ func (r *Router)Unicast(data byte) {
 	debugPrint(log.Printf, levelCrazy, "Unicast: collecting channels exit (%v)\n", targets)
 	for _, i := range targets {
 		select {
-			case r.In[i] <- data:
-				debugPrint(log.Printf, levelCrazy, "Unicast: send %d  to %d\n", data, i)
-			default: // drop 
+		case r.In[i] <- data:
+			debugPrint(log.Printf, levelCrazy, "Unicast: send %d  to %d\n", data, i)
+		default: // drop
 		}
 	}
 }
@@ -162,30 +174,31 @@ func (r *Router) Router() {
 						r.LEnter = idx
 						r.mu.Unlock()
 					}
-					r.ansiMu.RLock()
-					useANSI := r.ansiFilter
-					r.ansiMu.RUnlock()
-					if useANSI {
-						toForward := r.outgoingANSI[idx].Feed(data)
+					if r.FilterEnabled() {
+						debugPrint(log.Printf, levelDebug, "Filter branch\n")
+						toForward, injectToBoard := r.outgoingFilter.Feed(data)
 						for _, b := range toForward {
 							r.Unicast(b)
 						}
+						for _, b := range injectToBoard {
+							r.Feedback(idx, b)
+						}
 					} else {
+						debugPrint(log.Printf, levelDebug, "UnFilter branch\n")
 						r.Unicast(data)
 					}
 				} else if st == SrcMachine {
-					r.ansiMu.RLock()
-					useANSI := r.ansiFilter
-					r.ansiMu.RUnlock()
-					if useANSI {
-						toBroadcast, injectToBoard := r.incomingANSI.Feed(data)
+					if r.FilterEnabled() {
+						debugPrint(log.Printf, levelDebug, "Filter branch[]\n")
+						toBroadcast, injectToBoard := r.incomingFilter.Feed(data)
 						for _, b := range toBroadcast {
 							r.Brodcast(idx, b)
 						}
 						for _, b := range injectToBoard {
-							r.Unicast(b)
+							r.Feedback(idx, b)
 						}
 					} else {
+						debugPrint(log.Printf, levelDebug, "UnFilter branch[]\n")
 						r.Brodcast(idx, data)
 					}
 				}
