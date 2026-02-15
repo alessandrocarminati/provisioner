@@ -10,15 +10,15 @@ var (
 	CursorPositionQ          = Sequence("\x1b[6n")
 	DeviceSpecsQ             = Sequence("\x1b[c")
 	PrimaryDeviceAttributesQ = Sequence("\x1b[0c")
-	TestQ                    = Sequence("Hello")
+//	TestQ                    = Sequence("Bella")
 	CursorPositionF          = Sequence("\x1b[6n")
 	DeviceSpecsF             = Sequence("\x1b[c")
 	PrimaryDeviceAttributesF = Sequence("\x1b[0c")
-	TestF                    = Sequence("hello")
+//	TestF                    = Sequence("bella")
 	CursorPositionA          = Sequence("\x1b[?25;80R")
 	DeviceSpecsA             = Sequence("\x1b[?64;1;2;4;6;15;22c")
 	PrimaryDeviceAttributesA = Sequence("\x1b[?1;2c")
-	TestA                    = Sequence("stocazzo")
+//	TestA                    = Sequence("Dylan")
 )
 
 type Sequence []byte
@@ -37,12 +37,12 @@ type FilterRule struct {
 
 var (
 	defaultFilterRule = FilterRule{
-		//		[]Sequence{CursorPositionQ, DeviceSpecsQ, PrimaryDeviceAttributesQ, TestQ},
-		//		[]Sequence{CursorPositionF, DeviceSpecsF, PrimaryDeviceAttributesF, TestF},
-		//		[]Sequence{CursorPositionA, DeviceSpecsA, PrimaryDeviceAttributesA, TestA},
-		[]Sequence{TestQ},
-		[]Sequence{TestF},
-		[]Sequence{TestA},
+		[]Sequence{CursorPositionQ, DeviceSpecsQ, PrimaryDeviceAttributesQ},
+		[]Sequence{CursorPositionF, DeviceSpecsF, PrimaryDeviceAttributesF},
+		[]Sequence{CursorPositionA, DeviceSpecsA, PrimaryDeviceAttributesA},
+//		[]Sequence{TestQ},
+//		[]Sequence{TestF},
+//		[]Sequence{TestA},
 	}
 )
 

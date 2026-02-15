@@ -33,8 +33,8 @@ func NewRouter(n int) *Router {
 		Out:     make([]chan byte, n),
 		SrcType: make([]SType, n),
 		Filter:  false,
-		outgoingFilter: &StreamFilter{},
-		incomingFilter: &StreamFilter{},
+//		outgoingFilter: &StreamFilter{},
+//		incomingFilter: &StreamFilter{},
 	}
 	for i := 0; i < n; i++ {
 		r.In[i] = make(chan byte, 4096)

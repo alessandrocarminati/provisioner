@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"encoding/hex"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,8 +127,8 @@ func command_init(monitor *MonCtx, maxFences, maxScrSess int) *CmdCtx {
 		Handler:  c.board_stat,
 	}
 	c.commands["filter"] = Command{
-		Name:     "Filter",
-		HelpText: "Enable router level filter",
+		Name:     "filter",
+		HelpText: "Filter commands: type 'filter help' for more info",
 		Handler:  c.Filter,
 	}
 	c.commands["send_serial_deps"] = Command{
@@ -446,20 +447,361 @@ func (c *CmdCtx) send_serial_deps(input string) string {
 
 func (c *CmdCtx) Filter(input string) string {
 	router := (*(*c).monitor).router
-	arg := strings.TrimSpace(strings.ToLower(input))
-	switch arg {
-	case "on":
-		router.SetFilter(true)
-		return "filter on\r\n"
-	case "off":
-		router.SetFilter(false)
-		return "filter off\r\n"
-	default:
-		if router.FilterEnabled() {
-			return "filter on\r\n"
-		}
-		return "filter off\r\n"
+	parts := strings.Fields(strings.TrimSpace(input))
+
+	if len(parts) == 0 {
+		return c.getFilterStatus(router)
 	}
+
+	cmd := parts[0]
+
+	debugPrint(log.Printf, /**/levelDebug, "requested command %s\n", cmd)
+	switch cmd {
+	case "enable":
+		return c.enableFilter(router)
+
+	case "disable":
+		return c.disableFilter(router)
+
+	case "default":
+		return c.resetToDefault(router)
+
+	case "show":
+		return c.showFilterRules(router)
+
+	case "add":
+		if len(parts) < 2 {
+			return "error: add requires format and sequences\r\n" +
+				   "usage: filter add ascii <received> [forwarded] [answered]\r\n" +
+				   "	   filter add hex <received_hex> [forwarded_hex] [answered_hex]\r\n"
+		}
+		return c.addFilterRule(router, parts[1:])
+
+	case "remove":
+		if len(parts) < 2 {
+			return "error: remove requires rule index (format: remove <index>)\r\n"
+		}
+		return c.removeFilterRule(router, parts[1])
+	case "help":
+		return "available: enable, disable, default, show, add, remove, help\r\n"+
+			fmt.Sprintf("  %-20s %s\n\r", "enable :",  "Enables filters - Example: filter enable")+
+			fmt.Sprintf("  %-20s %s\n\r", "disable :", "Disables filters - Example: filter disable")+
+			fmt.Sprintf("  %-20s %s\n\r", "default :", "Restores filters default rules - Example: filter default")+
+			fmt.Sprintf("  %-20s %s\n\r", "show :",    "Shows current filter state and rules - Example: filter show")+
+			fmt.Sprintf("  %-20s %s\n\r", "add :",     "adds rules to filters")+
+			fmt.Sprintf("  %-20s %s\n\r", " Example >"," filter add hex 48656c6c6f 48656c6c6f 576f726c64")+
+			fmt.Sprintf("  %-20s %s\n\r", " Example >"," filter add ascii Hello Hello World")+
+			fmt.Sprintf("  %-20s %s\n\r", "remove :",  "removes rules to filters - Example: filter remove 5")+
+			fmt.Sprintf("  %-20s %s\n\r", "help :",    "this message")
+	default:
+		debugPrint(log.Printf, /**/levelWarning, "No such command %s\n", cmd)
+		return c.getFilterStatus(router)
+	}
+}
+
+func (c *CmdCtx) getFilterStatus(router *Router) string {
+	router.FilterMu.RLock()
+	enabled := router.Filter
+	router.FilterMu.RUnlock()
+
+	debugPrint(log.Printf, /**/levelDebug, "current state %t change to %t\n", enabled, !enabled)
+	if enabled {
+		return "filter on\r\n"
+	}
+	return "filter off\r\n"
+}
+
+func (c *CmdCtx) enableFilter(router *Router) string {
+	router.FilterMu.Lock()
+	defer router.FilterMu.Unlock()
+
+	debugPrint(log.Printf, /**/levelDebug, "filter is going live\n")
+
+	if router.outgoingFilter == nil {
+		debugPrint(log.Printf, /**/levelDebug, "filter outgoing rules needs to be created\n")
+		router.outgoingFilter = &StreamFilter{
+			rules: copyFilterRule(defaultFilterRule),
+		}
+	}
+	if router.incomingFilter == nil {
+		debugPrint(log.Printf, /**/levelDebug, "filter incoming rules needs to be created\n")
+		router.incomingFilter = &StreamFilter{
+			rules: copyFilterRule(defaultFilterRule),
+		}
+	}
+
+	router.Filter = true
+	return "filter enabled\r\n"
+}
+
+func (c *CmdCtx) disableFilter(router *Router) string {
+	router.FilterMu.Lock()
+	router.Filter = false
+	router.FilterMu.Unlock()
+
+	debugPrint(log.Printf, /**/levelDebug, "filter is going down\n")
+	return "filter disabled\r\n"
+}
+
+func (c *CmdCtx) resetToDefault(router *Router) string {
+	router.FilterMu.Lock()
+	defer router.FilterMu.Unlock()
+
+	debugPrint(log.Printf, /**/levelDebug, "set filter rules to default\n")
+
+	if router.outgoingFilter != nil {
+		router.outgoingFilter.mu.Lock()
+		router.outgoingFilter.rules = copyFilterRule(defaultFilterRule)
+		router.outgoingFilter.mu.Unlock()
+	}
+	if router.incomingFilter != nil {
+		router.incomingFilter.mu.Lock()
+		router.incomingFilter.rules = copyFilterRule(defaultFilterRule)
+		router.incomingFilter.mu.Unlock()
+	}
+
+	return "filter reset to default rules\r\n"
+}
+
+func (c *CmdCtx) showFilterRules(router *Router) string {
+	router.FilterMu.RLock()
+	enabled := router.Filter
+	outFilter := router.outgoingFilter
+	inFilter := router.incomingFilter
+	router.FilterMu.RUnlock()
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Filter status: %s\r\n", map[bool]string{true: "enabled", false: "disabled"}[enabled]))
+
+	if outFilter != nil {
+		outFilter.mu.Lock()
+		sb.WriteString("\nOutgoing filter rules:\r\n")
+		sb.WriteString(c.formatFilterRules(&outFilter.rules))
+		outFilter.mu.Unlock()
+	}
+
+	if inFilter != nil {
+		inFilter.mu.Lock()
+		sb.WriteString("\nIncoming filter rules:\r\n")
+		sb.WriteString(c.formatFilterRules(&inFilter.rules))
+		inFilter.mu.Unlock()
+	}
+
+	return sb.String()
+}
+
+func (c *CmdCtx) formatFilterRules(rules *FilterRule) string {
+	var sb strings.Builder
+
+	defaultCount := len(defaultFilterRule.Received)
+
+	for i, seq := range rules.Received {
+		var fwd, ans string
+		if i < len(rules.Forwarded) {
+			fwd = formatSequence(rules.Forwarded[i])
+		} else {
+			fwd = "-"
+		}
+		if i < len(rules.Answered) {
+			ans = formatSequence(rules.Answered[i])
+		} else {
+			ans = "-"
+		}
+
+		prefix := "  "
+		suffix := ""
+		if i < defaultCount {
+			prefix = "* "
+			suffix = " (default)"
+		}
+
+		sb.WriteString(fmt.Sprintf("%s[%d] R: %s | F: %s | A: %s%s\r\n",
+			prefix, i, formatSequence(seq), fwd, ans, suffix))
+	}
+
+	return sb.String()
+}
+
+func (c *CmdCtx) addFilterRule(router *Router, args []string) string {
+	if len(args) < 2 {
+		return "error: insufficient arguments\r\n" +
+			   "usage: filter add ascii <received> [forwarded] [answered]\r\n" +
+			   "	   filter add hex <received_hex> [forwarded_hex] [answered_hex]\r\n"
+	}
+
+	format := args[0]
+	sequences := args[1:]
+
+	var received, forwarded, answered Sequence
+	var err error
+
+	switch format {
+	case "ascii":
+		received = Sequence(sequences[0])
+	case "hex":
+		received, err = hexToBytes(sequences[0])
+		if err != nil {
+			return fmt.Sprintf("error: invalid received hex sequence: %v\r\n", err)
+		}
+	default:
+		return fmt.Sprintf("error: unknown format '%s', use 'ascii' or 'hex'\r\n", format)
+	}
+
+	if len(sequences) > 1 && sequences[1] != "-" && sequences[1] != "" {
+		switch format {
+		case "ascii":
+			forwarded = Sequence(sequences[1])
+		case "hex":
+			forwarded, err = hexToBytes(sequences[1])
+			if err != nil {
+				return fmt.Sprintf("error: invalid forwarded hex sequence: %v\r\n", err)
+			}
+		}
+	}
+
+	if len(sequences) > 2 && sequences[2] != "-" && sequences[2] != "" {
+		switch format {
+		case "ascii":
+			answered = Sequence(sequences[2])
+		case "hex":
+			answered, err = hexToBytes(sequences[2])
+			if err != nil {
+				return fmt.Sprintf("error: invalid answered hex sequence: %v\r\n", err)
+			}
+		}
+	}
+
+	router.FilterMu.Lock()
+	defer router.FilterMu.Unlock()
+
+	if router.outgoingFilter != nil {
+		router.outgoingFilter.mu.Lock()
+		router.outgoingFilter.rules.Received = append(router.outgoingFilter.rules.Received, received)
+		router.outgoingFilter.rules.Forwarded = append(router.outgoingFilter.rules.Forwarded, forwarded)
+		router.outgoingFilter.rules.Answered = append(router.outgoingFilter.rules.Answered, answered)
+		router.outgoingFilter.mu.Unlock()
+	}
+	if router.incomingFilter != nil {
+		router.incomingFilter.mu.Lock()
+		router.incomingFilter.rules.Received = append(router.incomingFilter.rules.Received, received)
+		router.incomingFilter.rules.Forwarded = append(router.incomingFilter.rules.Forwarded, forwarded)
+		router.incomingFilter.rules.Answered = append(router.incomingFilter.rules.Answered, answered)
+		router.incomingFilter.mu.Unlock()
+	}
+
+	return "filter rule added\r\n"
+}
+
+func (c *CmdCtx) removeFilterRule(router *Router, indexStr string) string {
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
+		return fmt.Sprintf("error: invalid index: %v\r\n", err)
+	}
+
+	router.FilterMu.Lock()
+	defer router.FilterMu.Unlock()
+
+	defaultCount := len(defaultFilterRule.Received)
+
+	if index < defaultCount {
+		return fmt.Sprintf("error: cannot remove default rule at index %d (read-only)\r\n", index)
+	}
+
+	if router.outgoingFilter != nil {
+		router.outgoingFilter.mu.Lock()
+		if index >= len(router.outgoingFilter.rules.Received) {
+			router.outgoingFilter.mu.Unlock()
+			return fmt.Sprintf("error: index %d out of range\r\n", index)
+		}
+		router.outgoingFilter.rules.Received = removeAt(router.outgoingFilter.rules.Received, index)
+		if index < len(router.outgoingFilter.rules.Forwarded) {
+			router.outgoingFilter.rules.Forwarded = removeAt(router.outgoingFilter.rules.Forwarded, index)
+		}
+		if index < len(router.outgoingFilter.rules.Answered) {
+			router.outgoingFilter.rules.Answered = removeAt(router.outgoingFilter.rules.Answered, index)
+		}
+		router.outgoingFilter.mu.Unlock()
+	}
+
+	if router.incomingFilter != nil {
+		router.incomingFilter.mu.Lock()
+		if index < len(router.incomingFilter.rules.Received) {
+			router.incomingFilter.rules.Received = removeAt(router.incomingFilter.rules.Received, index)
+			if index < len(router.incomingFilter.rules.Forwarded) {
+				router.incomingFilter.rules.Forwarded = removeAt(router.incomingFilter.rules.Forwarded, index)
+			}
+			if index < len(router.incomingFilter.rules.Answered) {
+				router.incomingFilter.rules.Answered = removeAt(router.incomingFilter.rules.Answered, index)
+			}
+		}
+		router.incomingFilter.mu.Unlock()
+	}
+
+	return fmt.Sprintf("filter rule %d removed\r\n", index)
+}
+
+func copyFilterRule(src FilterRule) FilterRule {
+	dst := FilterRule{
+		Received:  make([]Sequence, len(src.Received)),
+		Forwarded: make([]Sequence, len(src.Forwarded)),
+		Answered:  make([]Sequence, len(src.Answered)),
+	}
+
+	for i, seq := range src.Received {
+		dst.Received[i] = make(Sequence, len(seq))
+		copy(dst.Received[i], seq)
+	}
+	for i, seq := range src.Forwarded {
+		dst.Forwarded[i] = make(Sequence, len(seq))
+		copy(dst.Forwarded[i], seq)
+	}
+	for i, seq := range src.Answered {
+		dst.Answered[i] = make(Sequence, len(seq))
+		copy(dst.Answered[i], seq)
+	}
+
+	return dst
+}
+
+func removeAt(slice []Sequence, index int) []Sequence {
+	if index < 0 || index >= len(slice) {
+		return slice
+	}
+	return append(slice[:index], slice[index+1:]...)
+}
+
+func hexToBytes(s string) (Sequence, error) {
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "0x", "")
+	bytes, err := hex.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	return Sequence(bytes), nil
+}
+
+func formatSequence(seq Sequence) string {
+	if len(seq) == 0 {
+		return "-"
+	}
+
+	if isPrintable(seq) {
+		return fmt.Sprintf("\"%s\"", string(seq))
+	}
+
+	return "0x" + hex.EncodeToString(seq)
+}
+
+func isPrintable(seq Sequence) bool {
+	if len(seq) == 0 {
+		return false
+	}
+	for _, b := range seq {
+		if b < 32 || b > 126 {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *CmdCtx) log_serial(input string) string {
