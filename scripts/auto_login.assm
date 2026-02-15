@@ -1,0 +1,18 @@
+	loadreg R0,login :
+	loadreg R1,myuser
+	loadreg R2,assword:
+	loadreg R3,mypass
+
+wait_login:
+	fetch
+	suffix R0
+	jne wait_login
+	output R1
+	clear
+
+wait_pass:
+	fetch
+	suffix R2
+	jne wait_pass
+	output R3
+	end
