@@ -1,7 +1,6 @@
 package main
 
 import (
-	//	"fmt"
 	"errors"
 	"log"
 	"sync"
@@ -33,15 +32,9 @@ func NewRouter(n int) *Router {
 		In:      make([]chan byte, n),
 		Out:     make([]chan byte, n),
 		SrcType: make([]SType, n),
-		Filter:  true,
-		outgoingFilter: &StreamFilter{
-			buf:   make([]byte, 0, 1024),
-			rules: defaultFilterRule,
-		},
-		incomingFilter: &StreamFilter{
-			buf:   make([]byte, 0, 1024),
-			rules: defaultFilterRule,
-		},
+		Filter:  false,
+		outgoingFilter: &StreamFilter{},
+		incomingFilter: &StreamFilter{},
 	}
 	for i := 0; i < n; i++ {
 		r.In[i] = make(chan byte, 4096)
@@ -175,7 +168,7 @@ func (r *Router) Router() {
 						r.mu.Unlock()
 					}
 					if r.FilterEnabled() {
-						debugPrint(log.Printf, levelDebug, "Filter branch\n")
+						debugPrint(log.Printf, levelCrazy, "Filter branch\n")
 						toForward, injectToBoard := r.outgoingFilter.Feed(data)
 						for _, b := range toForward {
 							r.Unicast(b)
@@ -184,12 +177,12 @@ func (r *Router) Router() {
 							r.Feedback(idx, b)
 						}
 					} else {
-						debugPrint(log.Printf, levelDebug, "UnFilter branch\n")
+						debugPrint(log.Printf, levelCrazy, "UnFilter branch\n")
 						r.Unicast(data)
 					}
 				} else if st == SrcMachine {
 					if r.FilterEnabled() {
-						debugPrint(log.Printf, levelDebug, "Filter branch[]\n")
+						debugPrint(log.Printf, levelCrazy, "Filter branch[]\n")
 						toBroadcast, injectToBoard := r.incomingFilter.Feed(data)
 						for _, b := range toBroadcast {
 							r.Brodcast(idx, b)
@@ -198,7 +191,7 @@ func (r *Router) Router() {
 							r.Feedback(idx, b)
 						}
 					} else {
-						debugPrint(log.Printf, levelDebug, "UnFilter branch[]\n")
+						debugPrint(log.Printf, levelCrazy, "UnFilter branch[]\n")
 						r.Brodcast(idx, data)
 					}
 				}

@@ -50,11 +50,11 @@ func (sf *StreamFilter) Feed(b byte) (toBroadcast []byte, injectToBoard []byte) 
 	sf.mu.Lock()
 	defer sf.mu.Unlock()
 
-	debugPrint(log.Printf, levelDebug, "current buffer='%s', received='%s'\n", sf.buf, string(b))
+	debugPrint(log.Printf, levelCrazy, "current buffer='%s', received='%s'\n", sf.buf, string(b))
 	sf.buf = append(sf.buf, b)
 	PrefixesFound := 0
 	for i, seq := range sf.rules.Received {
-		debugPrint(log.Printf, levelDebug, "Check against '%s'\n", string(seq))
+		debugPrint(log.Printf, levelCrazy, "Check against '%s'\n", string(seq))
 		if bytes.HasPrefix(seq, sf.buf) {
 			PrefixesFound++
 			if bytes.Equal(sf.buf, seq) {
@@ -72,6 +72,6 @@ func (sf *StreamFilter) Feed(b byte) (toBroadcast []byte, injectToBoard []byte) 
 	}
 	tmp := sf.buf
 	sf.buf = []byte{}
-	debugPrint(log.Printf, levelDebug, "no match return buffered buffer='%s'\n", sf.buf)
+	debugPrint(log.Printf, levelCrazy, "no match return buffered buffer='%s'\n", sf.buf)
 	return tmp, nil //no match return buffered
 }
