@@ -1,23 +1,23 @@
 package main
 
 import (
-	"log"
-	"sync"
+	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
-	"os"
+	"log"
 	"net"
-	"fmt"
-//	"crypto/md5"
+	"os"
+	"sync"
+	//	"crypto/md5"
 	"encoding/hex"
 )
-type DefAuth struct {
-	service		string
-	name		string
-	token		string
-	state		bool
-}
 
+type DefAuth struct {
+	service string
+	name    string
+	token   string
+	state   bool
+}
 
 var GenAuth []DefAuth
 
@@ -28,7 +28,6 @@ func ssh_init(nMonitor, nSerial int) {
 	sshChannelsMonitor = make([]*ssh.Channel, nMonitor)
 	sshChannelsSerial = make([]*ssh.Channel, nSerial)
 }
-
 
 func checkPerm(token string, service string) bool {
 	for _, i := range GenAuth {
@@ -55,28 +54,28 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 		debugPrint(log.Printf, levelDebug, "add key for %s", comment) //hex.EncodeToString(pubKey.Marshal())
 		GenAuth = append(GenAuth, DefAuth{
 			service: desc,
-			name: comment,
-			token: hex.EncodeToString(pubKey.Marshal()),
-			state: def_aut,
+			name:    comment,
+			token:   hex.EncodeToString(pubKey.Marshal()),
+			state:   def_aut,
 		})
 		authorizedKeysMap[string(pubKey.Marshal())] = true
 		authorizedKeysBytes = rest
 	}
 	config := &ssh.ServerConfig{
-		PublicKeyCallback: func (c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-				if authorizedKeysMap[string(pubKey.Marshal())] {
-					debugPrint(log.Printf, levelDebug, "Authorized user attempt check permissions")
-					if checkPerm(hex.EncodeToString(pubKey.Marshal()), desc) {
-						return &ssh.Permissions{
-							Extensions: map[string]string{
-								"pubkey-fp": ssh.FingerprintSHA256(pubKey),
-							},
-						}, nil
-					} else {
+		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
+			if authorizedKeysMap[string(pubKey.Marshal())] {
+				debugPrint(log.Printf, levelDebug, "Authorized user attempt check permissions")
+				if checkPerm(hex.EncodeToString(pubKey.Marshal()), desc) {
+					return &ssh.Permissions{
+						Extensions: map[string]string{
+							"pubkey-fp": ssh.FingerprintSHA256(pubKey),
+						},
+					}, nil
+				} else {
 					return nil, fmt.Errorf("unauthorized user")
-					}
 				}
-				return nil, fmt.Errorf("unknown public key for %q", c.User())
+			}
+			return nil, fmt.Errorf("unknown public key for %q", c.User())
 		},
 	}
 
@@ -89,7 +88,6 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 		debugPrint(log.Printf, levelPanic, "Failed to parse private key: %s", err.Error())
 	}
 	config.AddHostKey(private)
-
 
 	listener, err := net.Listen("tcp4", "0.0.0.0:"+sshcfg.Port)
 	if err != nil {
@@ -109,10 +107,10 @@ func SSHHandler(sshcfg SSHCFG, desc string, r *Router, def_aut bool) {
 	}
 }
 
-func checkBrokenConnections(conn ssh.Conn, r *Router, n int,desc string){
+func checkBrokenConnections(conn ssh.Conn, r *Router, n int, desc string) {
 	conn.Wait()
 	r.DetachAt(n)
-	debugPrint(log.Printf, levelInfo, "Closing broken connection, detach %d",n)
+	debugPrint(log.Printf, levelInfo, "Closing broken connection, detach %d", n)
 	conn.Close()
 }
 
@@ -135,7 +133,7 @@ func handleSSHConnection(conn net.Conn, config *ssh.ServerConfig, r *Router, des
 		go ssh.DiscardRequests(reqs)
 
 		for newChannel := range chans {
-				go handleSSHChannel(newChannel, r, n, desc)
+			go handleSSHChannel(newChannel, r, n, desc)
 		}
 	} else {
 		debugPrint(log.Printf, levelWarning, "Failed to get new channels in router")
@@ -154,9 +152,9 @@ func handleSSHChannel(newChannel ssh.NewChannel, r *Router, nchan int, desc stri
 		return
 	}
 	if desc == "monitor" {
-		sshChannelsMonitor[nchan]=&channel
+		sshChannelsMonitor[nchan] = &channel
 	} else {
-		sshChannelsSerial[nchan]=&channel
+		sshChannelsSerial[nchan] = &channel
 	}
 	defer channel.Close()
 
@@ -166,7 +164,7 @@ func handleSSHChannel(newChannel ssh.NewChannel, r *Router, nchan int, desc stri
 	go func() {
 		defer wg.Done()
 		for {
-			data := <- r.In[nchan] //sshOut
+			data := <-r.In[nchan] //sshOut
 			_, err := channel.Write([]byte{data})
 			if err != nil {
 				if err != io.EOF {
@@ -189,9 +187,9 @@ func handleSSHChannel(newChannel ssh.NewChannel, r *Router, nchan int, desc stri
 				}
 				return
 			}
-			if n>0 {
+			if n > 0 {
 				debugPrint(log.Printf, levelCrazy, "read %d bytes = '%s'", len(buf), string(buf[:n]))
-				for i:=0;i<n;i++ {
+				for i := 0; i < n; i++ {
 					r.Out[nchan] <- buf[i] //sshIn
 				}
 			}

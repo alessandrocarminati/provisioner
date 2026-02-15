@@ -1,14 +1,14 @@
 package main
 
 import (
-	"os"
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
+	"os"
 	"regexp"
-	"strings"
 	"strconv"
-	"errors"
+	"strings"
 	"time"
 )
 
@@ -48,31 +48,30 @@ var InstructionMnemonics = [...]string{
 }
 
 type Instruction struct {
-        Type InstructionType
-        Args []string
+	Type InstructionType
+	Args []string
 }
-
 
 type Executor struct {
-	accumulator   string
-	registers     [16]string
-	flag          bool
-	pc            int
-	instructions  []Instruction
-	fetcher       func(chan byte) byte
-	fetcherArg    chan byte
-	putter        func(string)
-	executed      int
+	accumulator  string
+	registers    [16]string
+	flag         bool
+	pc           int
+	instructions []Instruction
+	fetcher      func(chan byte) byte
+	fetcherArg   chan byte
+	putter       func(string)
+	executed     int
 }
 
-func (e *Executor) setFetcher(f func(chan byte) byte ) {
+func (e *Executor) setFetcher(f func(chan byte) byte) {
 	debugPrint(log.Printf, levelDebug, "Set new fetcher function")
-	e.fetcher =f
+	e.fetcher = f
 }
 
 func (e *Executor) setFetcherArg(a chan byte) {
 	debugPrint(log.Printf, levelDebug, "Set new fetcher function argument")
-        e.fetcherArg =a
+	e.fetcherArg = a
 }
 
 func (e *Executor) fetch() byte {
@@ -80,23 +79,23 @@ func (e *Executor) fetch() byte {
 	return e.fetcher(e.fetcherArg)
 }
 
-func (e *Executor) setPutter(f func(string) ) {
+func (e *Executor) setPutter(f func(string)) {
 	debugPrint(log.Printf, levelDebug, "Set new putter function")
-	e.putter =f
+	e.putter = f
 }
 
 func (e *Executor) put(s string) {
 	debugPrint(log.Printf, levelCrazy, "executing putter function")
-	e.putter(s+"\r\n")
+	e.putter(s + "\r\n")
 	return
 }
 
-func (e *Executor) Parse(input []string) (error) {
+func (e *Executor) Parse(input []string) error {
 	debugPrint(log.Printf, levelInfo, "Parsing new program")
 	instructions := make([]Instruction, 0)
 	labels := make(map[string]int)
 
-	debugFmtParsedLine:="line %d, Adding new %s %s"
+	debugFmtParsedLine := "line %d, Adding new %s %s"
 
 	for linen, line := range input {
 		line = strings.TrimSpace(line)
@@ -116,14 +115,14 @@ func (e *Executor) Parse(input []string) (error) {
 		parts := splitCmdArg(line)
 
 		var instrType InstructionType
-//		debugPrint(log.Printf, levelWarning, "%d ===> %s %s <-- %s", linen, parts[0], parts[1], InstructionMnemonics[LoadRegister])
+		//		debugPrint(log.Printf, levelWarning, "%d ===> %s %s <-- %s", linen, parts[0], parts[1], InstructionMnemonics[LoadRegister])
 
 		switch strings.ToLower(parts[0]) {
 		case InstructionMnemonics[LoadRegister]:
 			instrn := InstructionMnemonics[Move]
 			_, err := getRegisterIndex(parts[1])
 			if err != nil {
-				s:=fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
+				s := fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
 				debugPrint(log.Printf, levelError, s)
 				return errors.New(s)
 			}
@@ -133,7 +132,7 @@ func (e *Executor) Parse(input []string) (error) {
 			instrn := InstructionMnemonics[Move]
 			_, err := getRegisterIndex(parts[1])
 			if err != nil {
-				s:=fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
+				s := fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
 				debugPrint(log.Printf, levelError, s)
 				return errors.New(s)
 			}
@@ -143,7 +142,7 @@ func (e *Executor) Parse(input []string) (error) {
 			instrn := InstructionMnemonics[Clear]
 			_, err := getRegisterIndex(parts[1])
 			if err != nil {
-				s:=fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
+				s := fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
 				debugPrint(log.Printf, levelError, s)
 				return errors.New(s)
 			}
@@ -156,7 +155,7 @@ func (e *Executor) Parse(input []string) (error) {
 			instrn := InstructionMnemonics[Compare]
 			_, err := getRegisterIndex(parts[1])
 			if err != nil {
-				s:=fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
+				s := fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
 				debugPrint(log.Printf, levelError, s)
 				return errors.New(s)
 			}
@@ -166,7 +165,7 @@ func (e *Executor) Parse(input []string) (error) {
 			instrn := InstructionMnemonics[Suffix]
 			_, err := getRegisterIndex(parts[1])
 			if err != nil {
-				s:=fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
+				s := fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
 				debugPrint(log.Printf, levelError, s)
 				return errors.New(s)
 			}
@@ -176,7 +175,7 @@ func (e *Executor) Parse(input []string) (error) {
 			instrn := InstructionMnemonics[Regex]
 			_, err := getRegisterIndex(parts[1])
 			if err != nil {
-				s:=fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
+				s := fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
 				debugPrint(log.Printf, levelError, s)
 				return errors.New(s)
 			}
@@ -186,7 +185,7 @@ func (e *Executor) Parse(input []string) (error) {
 			instrn := InstructionMnemonics[Append]
 			_, err := getRegisterIndex(parts[1])
 			if err != nil {
-				s:=fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
+				s := fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
 				debugPrint(log.Printf, levelError, s)
 				return errors.New(s)
 			}
@@ -196,7 +195,7 @@ func (e *Executor) Parse(input []string) (error) {
 			instrn := InstructionMnemonics[Output]
 			_, err := getRegisterIndex(parts[1])
 			if err != nil {
-				s:=fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
+				s := fmt.Sprintf("line %d, %s: %s", linen, instrn, err.Error())
 				debugPrint(log.Printf, levelError, s)
 				return errors.New(s)
 			}
@@ -234,7 +233,7 @@ func (e *Executor) Parse(input []string) (error) {
 			debugPrint(log.Printf, levelDebug, debugFmtParsedLine, linen, instrn, parts[1])
 			instrType = End
 		default:
-			s:=fmt.Sprintf("unknown instruction at %d: %s", linen+1, line)
+			s := fmt.Sprintf("unknown instruction at %d: %s", linen+1, line)
 			debugPrint(log.Printf, levelError, s)
 			return errors.New(s)
 		}
@@ -261,11 +260,10 @@ func instr2str(i Instruction) string {
 	return fmt.Sprintf("%s%s%s", mnemonic, arg1, arg2)
 }
 
-
 func (e *Executor) DumpCPU(instructions []Instruction) {
 
-	s:= fmt.Sprintf("[%03d]: %s\n", e.pc, instr2str(instructions[e.pc]))
-	s = s+ fmt.Sprintf("Accumulator='%s'\n", e.accumulator)
+	s := fmt.Sprintf("[%03d]: %s\n", e.pc, instr2str(instructions[e.pc]))
+	s = s + fmt.Sprintf("Accumulator='%s'\n", e.accumulator)
 	for i, r := range e.registers {
 		s = s + fmt.Sprintf("R[%d]='%s' ", i, r)
 	}
@@ -275,17 +273,17 @@ func (e *Executor) DumpCPU(instructions []Instruction) {
 
 func (e *Executor) Execute(limit int) error {
 
-	if (e.fetcher==nil) || (e.fetcherArg == nil) {
-		s:="Executor not initialyzed"
+	if (e.fetcher == nil) || (e.fetcherArg == nil) {
+		s := "Executor not initialyzed"
 		debugPrint(log.Printf, levelError, s)
 		return errors.New(s)
 	}
 
-	e.executed=0
+	e.executed = 0
 	for e.pc < len(e.instructions) {
 		instr := e.instructions[e.pc]
 		if e.executed > limit {
-			s:=fmt.Sprintf("Limit %d instrs reached!", limit)
+			s := fmt.Sprintf("Limit %d instrs reached!", limit)
 			debugPrint(log.Printf, levelError, s)
 			return errors.New(s)
 		}
@@ -301,7 +299,7 @@ func (e *Executor) Execute(limit int) error {
 		case Clear:
 			e.accumulator = ""
 		case Fetch:
-			e.accumulator = e.accumulator +  string(e.fetch())
+			e.accumulator = e.accumulator + string(e.fetch())
 		case Compare:
 			reg, _ := getRegisterIndex(instr.Args[0])
 			if e.accumulator == e.registers[reg] {
@@ -350,24 +348,24 @@ func (e *Executor) Execute(limit int) error {
 
 func getRegisterIndex(arg string) (int, error) {
 	var reg = regexp.MustCompile(`^[rR][0-9]{1,2}$`)
-	err:=fmt.Errorf("invalid register: %s", arg)
+	err := fmt.Errorf("invalid register: %s", arg)
 
 	debugPrint(log.Printf, levelDebug, "Applying regex at '%s'", arg)
 	if !reg.MatchString(arg) {
 		return -1, err
 	}
 
-	debugPrint(log.Printf, levelDebug, "Convert number '%s'",arg[1:] )
+	debugPrint(log.Printf, levelDebug, "Convert number '%s'", arg[1:])
 	num, err := strconv.Atoi(arg[1:])
 	if err != nil {
-		debugPrint(log.Printf, levelError, "Convert error: %s",  err.Error())
+		debugPrint(log.Printf, levelError, "Convert error: %s", err.Error())
 		return -1, err
 	}
 	if num >= 16 {
-		debugPrint(log.Printf, levelError, "Num too large: %d",  num)
+		debugPrint(log.Printf, levelError, "Num too large: %d", num)
 		return -1, err
 	}
-	debugPrint(log.Printf, levelDebug, "Return %d", num )
+	debugPrint(log.Printf, levelDebug, "Return %d", num)
 	return num, nil
 }
 
@@ -392,27 +390,27 @@ func TextRead(fn string) ([]string, error) {
 
 	return lines, nil
 }
-func einit(fn string, In <-chan byte, Out chan<- byte) (Executor, error){
-        input:=make(chan byte, 4096)
+func einit(fn string, In <-chan byte, Out chan<- byte) (Executor, error) {
+	input := make(chan byte, 4096)
 
-        executor := Executor{}
-        executor.setFetcher(peek)
-        executor.setFetcherArg(input)
-        executor.setPutter(func(s string) {
-				for i:=0;i<len(s);i++ {
-					Out <- byte(s[i])
-				}
-				for len(Out) > 0 { // warning! out channel can be used for other actors
-					time.Sleep(50 * time.Millisecond)
-				}
-			})
-	lines, err :=TextRead(fn)
-	if err!= nil {
+	executor := Executor{}
+	executor.setFetcher(peek)
+	executor.setFetcherArg(input)
+	executor.setPutter(func(s string) {
+		for i := 0; i < len(s); i++ {
+			Out <- byte(s[i])
+		}
+		for len(Out) > 0 { // warning! out channel can be used for other actors
+			time.Sleep(50 * time.Millisecond)
+		}
+	})
+	lines, err := TextRead(fn)
+	if err != nil {
 		debugPrint(log.Printf, levelError, "Error in reading assm file: %s", err.Error())
 		return Executor{}, err
 	}
 	err = executor.Parse(lines)
-	if err!= nil {
+	if err != nil {
 		debugPrint(log.Printf, levelError, "Error in parsing assm file: %s", err.Error())
 		return Executor{}, err
 	}
@@ -427,7 +425,7 @@ func einit(fn string, In <-chan byte, Out chan<- byte) (Executor, error){
 }
 
 func peek(i chan byte) byte {
-	b:= <- i
+	b := <-i
 	return b
 }
 

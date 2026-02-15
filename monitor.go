@@ -8,17 +8,17 @@ import (
 
 type CharFunc func(b byte, line *[]byte) []byte
 type MonCtx struct {
-	monitorConfig    map[string] string
-	prompt           []byte
-	HandleChar       [256] CharFunc
-	commands         *CmdCtx
-	monitorIn        <-chan byte
-	monitorOut       chan<- byte
-	router           *Router
+	monitorConfig map[string]string
+	prompt        []byte
+	HandleChar    [256]CharFunc
+	commands      *CmdCtx
+	monitorIn     <-chan byte
+	monitorOut    chan<- byte
+	router        *Router
 }
 
-func (m *MonCtx) HandleCharInit(){
-	var HandleChar [256] CharFunc
+func (m *MonCtx) HandleCharInit() {
+	var HandleChar [256]CharFunc
 
 	for i := 0; i <= 31; i++ {
 		HandleChar[i] = m.ChDiscard
@@ -29,29 +29,29 @@ func (m *MonCtx) HandleCharInit(){
 	for i := 32; i <= 127; i++ {
 		HandleChar[i] = m.ChNormal
 	}
-	for i:=128;i<=255;i++ {
-		HandleChar[i]=m.ChDiscard
+	for i := 128; i <= 255; i++ {
+		HandleChar[i] = m.ChDiscard
 	}
-	HandleChar[0x0d]=m.ChEnter
-	HandleChar[0x7f]=m.ChBackspace
-	HandleChar[0x1b]=m.ChEscape
-	m.HandleChar=HandleChar
+	HandleChar[0x0d] = m.ChEnter
+	HandleChar[0x7f] = m.ChBackspace
+	HandleChar[0x1b] = m.ChEscape
+	m.HandleChar = HandleChar
 }
 
-func MonitorInit(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[string] string, r *Router, prompt string, maxFences, maxScrSess int) (*MonCtx) {
+func MonitorInit(monitorIn <-chan byte, monitorOut chan<- byte, monConfig map[string]string, r *Router, prompt string, maxFences, maxScrSess int) *MonCtx {
 	debugPrint(log.Printf, levelDebug, "Monitor initialization\n")
 	cmdctx := command_init(nil, maxFences, maxScrSess)
 	cmdctx.fences["snmp"] = cmdctx.snmpSwitch
 	cmdctx.fences["tasmota"] = cmdctx.tasmotaSwitch
 	cmdctx.fences["beaker"] = cmdctx.beakerSwitch
 	initEsc()
-	m:= MonCtx{
-		monitorConfig:  monConfig,
-		prompt:         []byte(prompt),
-		commands:       cmdctx,
-		monitorIn:      monitorIn,
-		monitorOut:     monitorOut,
-		router:         r,
+	m := MonCtx{
+		monitorConfig: monConfig,
+		prompt:        []byte(prompt),
+		commands:      cmdctx,
+		monitorIn:     monitorIn,
+		monitorOut:    monitorOut,
+		router:        r,
 	}
 	m.HandleCharInit()
 	debugPrint(log.Printf, levelCrazy, "Created object MonCtx = %+v", m)
@@ -66,20 +66,20 @@ func (m *MonCtx) doMonitor() {
 		for _, c := range out {
 			m.monitorOut <- c
 		}
-		b := <- m.monitorIn
+		b := <-m.monitorIn
 		out = m.HandleChar[b](b, &line)
 	}
 	debugPrint(log.Printf, levelWarning, "Terminating Operations\n")
 }
 
-func (m *MonCtx) ChEnter(b byte, line *[]byte) []byte{
-	debugPrint(log.Printf, levelCrazy, "ChEnter %x '%s'\n", b,string(*line))
+func (m *MonCtx) ChEnter(b byte, line *[]byte) []byte {
+	debugPrint(log.Printf, levelCrazy, "ChEnter %x '%s'\n", b, string(*line))
 	out := "\n\r"
 	cmd := strings.Split(string(*line), " ")
 	key := cmd[0]
-	args := strings.Join(cmd[1:]," ")
+	args := strings.Join(cmd[1:], " ")
 	debugPrint(log.Printf, levelCrazy, "key=%s args='%s'", key, args)
-	if key!="" {
+	if key != "" {
 		if _, ok := m.commands.commands[key]; ok {
 			out = out + m.commands.commands[key].Handler(args)
 		} else {
@@ -91,13 +91,13 @@ func (m *MonCtx) ChEnter(b byte, line *[]byte) []byte{
 
 }
 
-func (m *MonCtx) ChNormal(b byte, line *[]byte) []byte{
-	debugPrint(log.Printf, levelCrazy, "ChNormal %x '%s'\n", b,string(*line))
+func (m *MonCtx) ChNormal(b byte, line *[]byte) []byte {
+	debugPrint(log.Printf, levelCrazy, "ChNormal %x '%s'\n", b, string(*line))
 
 	out := []byte{b}
-	*line = append(*line,b)
+	*line = append(*line, b)
 	if Escape > 0 {
-		Escape --
+		Escape--
 		if Escape == 0 {
 			key := string((*line)[len(*line)-2:])
 			if _, ok := EscapeFunc[key]; ok {
@@ -109,27 +109,27 @@ func (m *MonCtx) ChNormal(b byte, line *[]byte) []byte{
 		return nil
 
 	}
-        return out
+	return out
 }
 
-func (m *MonCtx) ChBackspace(b byte, line *[]byte) []byte{
+func (m *MonCtx) ChBackspace(b byte, line *[]byte) []byte {
 	var ret []byte
 
-	debugPrint(log.Printf, levelCrazy, "ChBackspace %x '%s'\n", b,string(*line))
+	debugPrint(log.Printf, levelCrazy, "ChBackspace %x '%s'\n", b, string(*line))
 	oldLine := *line
 	if len(oldLine) <= 0 {
 		ret = nil
 	} else {
 		newLine := oldLine[:len(oldLine)-1]
 		*line = newLine
-		ret = []byte{8,32,8}
+		ret = []byte{8, 32, 8}
 	}
 	return ret
 }
 
-func (m *MonCtx) ChDiscard(b byte, line *[]byte) []byte{
-	debugPrint(log.Printf, levelWarning, "ChDiscard %x '%s'\n", b,string(*line))
-        return nil
+func (m *MonCtx) ChDiscard(b byte, line *[]byte) []byte {
+	debugPrint(log.Printf, levelWarning, "ChDiscard %x '%s'\n", b, string(*line))
+	return nil
 }
 
 func (m *MonCtx) ChEscape(b byte, line *[]byte) []byte {
@@ -167,7 +167,7 @@ func (m *MonCtx) ChCtrlW(b byte, line *[]byte) []byte {
 	n := len(*line)
 	*line = []byte{}
 	out := make([]byte, 0, n*3+1+len(m.prompt))
-	for i := 0; i<n; i++ {
+	for i := 0; i < n; i++ {
 		out = append(out, 8, 32, 8)
 	}
 	out = append(out, '\r')

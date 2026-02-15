@@ -1,22 +1,22 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
-	"sync"
 	"os"
 	"strconv"
+	"sync"
 	"time"
-	"fmt"
-	"context"
 
 	"github.com/tarm/serial"
 )
 
-func checker(serialPort string){
+func checker(serialPort string) {
 	for {
 		time.Sleep(30 * time.Second)
 		busy, err := IsBusy(serialPort)
-		if err==nil {
+		if err == nil {
 			if busy {
 				debugPrint(log.Printf, levelError, "%s is busy!", serialPort)
 			}

@@ -2,38 +2,38 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"log"
-	"strings"
 	"io/ioutil"
+	"log"
 	"net/http"
-	"crypto/tls"
 	"net/http/httputil"
+	"strings"
 )
 
-func (c *CmdCtx) beakerSwitch(state string)error {
+func (c *CmdCtx) beakerSwitch(state string) error {
 	var ignoressl bool
 
 	errstr := "Config error\r\n"
 	debugPrint(log.Printf, levelDebug, "fetching beaker data")
-	username,  ok := (*(*c).monitor).monitorConfig["beaker_username"]
-	if ! ok {
+	username, ok := (*(*c).monitor).monitorConfig["beaker_username"]
+	if !ok {
 		return errors.New(errstr)
 	}
-	password,  ok := (*(*c).monitor).monitorConfig["beaker_password"]
-	if ! ok {
+	password, ok := (*(*c).monitor).monitorConfig["beaker_password"]
+	if !ok {
 		return errors.New(errstr)
 	}
-        ignoresslstr,  ok := (*(*c).monitor).monitorConfig["beaker_ignoressl"]
-	if ! ok {
+	ignoresslstr, ok := (*(*c).monitor).monitorConfig["beaker_ignoressl"]
+	if !ok {
 		return errors.New(errstr)
 	}
 	if ignoresslstr == "true" || ignoresslstr == "false" {
 		if ignoresslstr == "true" {
-			ignoressl=true
-		}else{
-			ignoressl=false
+			ignoressl = true
+		} else {
+			ignoressl = false
 		}
 	} else {
 		return errors.New(errstr)
@@ -41,13 +41,13 @@ func (c *CmdCtx) beakerSwitch(state string)error {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: ignoressl},
 	}
-	baseurl,  ok := (*(*c).monitor).monitorConfig["beaker_url"]
-	if ! ok {
+	baseurl, ok := (*(*c).monitor).monitorConfig["beaker_url"]
+	if !ok {
 		return errors.New(errstr)
 	}
 
-	device,  ok := (*(*c).monitor).monitorConfig["beaker_device"]
-	if ! ok {
+	device, ok := (*(*c).monitor).monitorConfig["beaker_device"]
+	if !ok {
 		return errors.New(errstr)
 	}
 
@@ -57,7 +57,7 @@ func (c *CmdCtx) beakerSwitch(state string)error {
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
-			},
+		},
 		Transport: tr}
 
 	req, err := http.NewRequest("GET", loginURL, nil)
@@ -72,7 +72,7 @@ func (c *CmdCtx) beakerSwitch(state string)error {
 	if err != nil {
 		return err
 	}
-	debugPrint(log.Printf, levelDebug, "REQUEST:\n%s", string(reqDump) )
+	debugPrint(log.Printf, levelDebug, "REQUEST:\n%s", string(reqDump))
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -86,7 +86,7 @@ func (c *CmdCtx) beakerSwitch(state string)error {
 		return err
 	}
 
-	debugPrint(log.Printf, levelDebug, "RESPONSE:\n%s", string(respDump) )
+	debugPrint(log.Printf, levelDebug, "RESPONSE:\n%s", string(respDump))
 
 	if resp.StatusCode != http.StatusFound {
 		return err
@@ -97,7 +97,6 @@ func (c *CmdCtx) beakerSwitch(state string)error {
 		debugPrint(log.Printf, levelDebug, "Cookie: %s=%s\n", cookie.Name, cookie.Value)
 	}
 	cookie := resp.Cookies()[0]
-
 
 	postURL := "https://" + baseurl + "/systems/" + device + "/commands/"
 

@@ -1,18 +1,19 @@
 package main
+
 import (
-	"context"
-	"sync/atomic"
 	"bufio"
-	"time"
-	"os"
-	"log"
+	"context"
+	"errors"
 	"fmt"
 	"golang.org/x/term"
-	"syscall"
-	"strings"
-	"errors"
-	"strconv"
+	"log"
+	"os"
 	"runtime"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"syscall"
+	"time"
 )
 
 var Build string
@@ -97,13 +98,13 @@ func main() {
 
 	if cmdline.CalFetch {
 		_, err := NextReservation("cred.json", "primary", nil)
-		if err!=nil {
+		if err != nil {
 			fmt.Println("Error accessing calendar: ", err)
 			return
 		}
 		fmt.Println("Calendar access ok")
 		return
-		}
+	}
 	if cmdline.GenKeys {
 		err := GenerateKeyPair("private", "public")
 		if err != nil {
@@ -115,7 +116,7 @@ func main() {
 	}
 
 	if cmdline.Enc {
-		if cmdline.Key!="" {
+		if cmdline.Key != "" {
 			data, err := EncryptConfig(cmdline.ConfigFN, cmdline.Key)
 			if err != nil {
 				fmt.Println("Error in crypting config: ", err)
@@ -136,14 +137,13 @@ func main() {
 		fmt.Printf("Debug ACL Activated! Waching -> %s\n", cmdline.Dacl)
 	}
 
-	config, err :=  fetch_config(cmdline.ConfigFN, cmdline.Key)
-	if err!= nil {
+	config, err := fetch_config(cmdline.ConfigFN, cmdline.Key)
+	if err != nil {
 		log.Fatal(err)
 	}
 
-
 	value, ok := config.Monitor["pdu_type"]
-	if ok && (value=="beaker") {
+	if ok && (value == "beaker") {
 		//check beaker username
 		_, ok = config.Monitor["beaker_username"]
 		if !ok {
@@ -168,8 +168,8 @@ func main() {
 			config.Monitor["beaker_password"] = s
 		}
 	}
-	maxFenceTypes, maxScriptSess, err :=getMaxs(config)
-	if err!= nil {
+	maxFenceTypes, maxScriptSess, err := getMaxs(config)
+	if err != nil {
 		fmt.Printf("Config error: %s\n", err.Error())
 		return
 	}
@@ -197,7 +197,7 @@ func main() {
 	monitorRouter.Router()
 	monitorRouter.AttachAt(config.Router.MonitorMain, SrcMachine)
 
-	m := MonitorInit(monitorRouter.In[config.Router.MonitorMain], monitorRouter.Out[config.Router.MonitorMain], config.Monitor, serialRouter,  "> ", maxFenceTypes, maxScriptSess)
+	m := MonitorInit(monitorRouter.In[config.Router.MonitorMain], monitorRouter.Out[config.Router.MonitorMain], config.Monitor, serialRouter, "> ", maxFenceTypes, maxScriptSess)
 	go m.doMonitor()
 	go SSHHandler(config.SSHMon, "monitor", monitorRouter, true)
 	if config.Calendar.Enable {

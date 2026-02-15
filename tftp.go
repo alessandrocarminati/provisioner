@@ -1,20 +1,22 @@
 package main
+
 import (
-//	"github.com/pin/tftp"
-	"github.com/pin/tftp/v3"
+	//	"github.com/pin/tftp"
 	"fmt"
-	"net/http"
-	"strings"
-	"os"
+	"github.com/pin/tftp/v3"
 	"io"
 	"log"
+	"net/http"
+	"os"
+	"strings"
 )
+
 func TFTPHandler(rootDir string) {
-	debugPrint(log.Printf, levelWarning, "Starting TFTP service with rootdir: %s", rootDir )
+	debugPrint(log.Printf, levelWarning, "Starting TFTP service with rootdir: %s", rootDir)
 	server := tftp.NewServer(
 		func(filename string, rf io.ReaderFrom) error {
 			var (
-				err error
+				err  error
 				resp io.ReadCloser
 			)
 			debugPrint(log.Printf, levelNotice, "TFTP Request: %s\n", filename)
@@ -23,7 +25,7 @@ func TFTPHandler(rootDir string) {
 				debugPrint(log.Printf, levelNotice, "TFTP Remote proxy service Request: %s\n", url)
 				httpResp, err := http.Get(url)
 				if err != nil {
-					return  err
+					return err
 				}
 				if httpResp.StatusCode != http.StatusOK {
 					httpResp.Body.Close()
@@ -61,10 +63,10 @@ func TFTPHandler(rootDir string) {
 	)
 	server.SetBlockSize(1468)
 	server.SetAnticipate(64)
-	bind:="0.0.0.0:69"
+	bind := "0.0.0.0:69"
 	err := server.ListenAndServe(bind)
 	if err != nil {
 		debugPrint(log.Printf, levelError, "Error starting TFTP server: %s", err.Error())
 	}
-	debugPrint(log.Printf, levelWarning,"TFTP server is active on %s", bind)
+	debugPrint(log.Printf, levelWarning, "TFTP server is active on %s", bind)
 }

@@ -1,8 +1,10 @@
 package main
+
 import (
-	"flag"
 	"bytes"
+	"flag"
 )
+
 type Cmdline struct {
 	ConfigFN string
 	Key      string

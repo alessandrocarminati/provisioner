@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -16,7 +16,7 @@ type DeviceState struct {
 func (c *CmdCtx) tasmotaSwitch(state string) error {
 	err := errors.New(fmt.Sprintf("Unknown command: %s", state))
 
-	if ((state=="ON") || (state=="OFF")) {
+	if (state == "ON") || (state == "OFF") {
 		tasmota_host, ok := (*(*c).monitor).monitorConfig["tasmota_host"]
 		if ok {
 			err = TasmotaSetState(tasmota_host, state)
@@ -66,7 +66,7 @@ func TasmotaSetState(host string, state string) error {
 	url := fmt.Sprintf("http://%s/cm?cmnd=power+%s", host, state)
 	resp, err := http.Get(url)
 	if err != nil {
-		debugPrint(log.Printf, levelError, err.Error() )
+		debugPrint(log.Printf, levelError, err.Error())
 		return errors.New("unable to set device state\r\n")
 	}
 	defer resp.Body.Close()
@@ -92,4 +92,3 @@ func TasmotaSetState(host string, state string) error {
 
 	return nil
 }
-

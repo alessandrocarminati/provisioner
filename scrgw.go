@@ -1,10 +1,11 @@
 package main
+
 import (
 	"bufio"
 	"crypto/rand"
 	"encoding/hex"
- 	"log"
 	"io"
+	"log"
 	"os/exec"
 	"strings"
 	"sync"
@@ -26,34 +27,38 @@ const (
 )
 
 type ScriptGwData struct {
-	state         ExecutionState
-	TType         TermType
-	mu            sync.Mutex
-	cmdFn         string
-	In            <-chan byte
-	Out           chan<- byte
+	state ExecutionState
+	TType TermType
+	mu    sync.Mutex
+	cmdFn string
+	In    <-chan byte
+	Out   chan<- byte
 }
 
 func (gw *ScriptGwData) GetState() string {
 	switch gw.state {
-	case Undefined: return "Undefined"
-	case Running: return "Running"
-	case TerminatedWithError: return "TerminatedWithError"
-	case TerminatedOk: return "TerminatedOk"
+	case Undefined:
+		return "Undefined"
+	case Running:
+		return "Running"
+	case TerminatedWithError:
+		return "TerminatedWithError"
+	case TerminatedOk:
+		return "TerminatedOk"
 	}
 	return "Inconsistent"
 }
 
 func generateRandomToken(length int) (string, error) {
-    randomBytes := make([]byte, length)
-    _, err := rand.Read(randomBytes)
-    if err != nil {
-        return "", err
-    }
+	randomBytes := make([]byte, length)
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return "", err
+	}
 
-    token := hex.EncodeToString(randomBytes)
+	token := hex.EncodeToString(randomBytes)
 
-    return token, nil
+	return token, nil
 }
 
 func (gw *ScriptGwData) charOrientedWrite(stdinPipe io.WriteCloser, jisatsu *bool) {
@@ -64,9 +69,9 @@ func (gw *ScriptGwData) charOrientedWrite(stdinPipe io.WriteCloser, jisatsu *boo
 		if !(*jisatsu) {
 			break
 		}
-		debugPrint(log.Printf, levelDebug, "received %d",b)
+		debugPrint(log.Printf, levelDebug, "received %d", b)
 		tosend := []byte{b}
-		if b==13 {
+		if b == 13 {
 			tosend = []byte{10, b}
 		}
 		_, err := stdinPipe.Write(tosend)
@@ -88,7 +93,7 @@ func (gw *ScriptGwData) lineOrientedWrite(stdinPipe io.WriteCloser, jisatsu *boo
 		if !(*jisatsu) {
 			break
 		}
-		if b==13 {
+		if b == 13 {
 			tosend = append(tosend, 10)
 			tosend = append(tosend, 13)
 			_, err := stdinPipe.Write(tosend)
@@ -97,8 +102,8 @@ func (gw *ScriptGwData) lineOrientedWrite(stdinPipe io.WriteCloser, jisatsu *boo
 				return
 			}
 			tosend = []byte{}
-		} else  {
-		tosend = append(tosend, b)
+		} else {
+			tosend = append(tosend, b)
 		}
 		debugPrint(log.Printf, levelCrazy, "(%s)received %02x current='%s'", t, b, string(tosend))
 	}
@@ -133,7 +138,6 @@ func (gw *ScriptGwData) ScriptGwExec() {
 		return
 	}
 
-
 	if err := cmd.Start(); err != nil {
 		debugPrint(log.Printf, levelError, "Error starting command: %s", err.Error())
 		gw.updateState(TerminatedWithError)
@@ -142,22 +146,22 @@ func (gw *ScriptGwData) ScriptGwExec() {
 	debugPrint(log.Printf, levelDebug, "Script Started!")
 
 	switch gw.TType {
-		case CharOriented:
-			debugPrint(log.Printf, levelDebug, "Starting chars based stdin manager")
-			go gw.charOrientedWrite(stdinPipe, &jisatsu)
-		case LineOriented:
-			debugPrint(log.Printf, levelDebug, "Starting lines based stdin manager")
-			go gw.lineOrientedWrite(stdinPipe, &jisatsu)
-		default:
-			gw.updateState(TerminatedWithError)
-			return
+	case CharOriented:
+		debugPrint(log.Printf, levelDebug, "Starting chars based stdin manager")
+		go gw.charOrientedWrite(stdinPipe, &jisatsu)
+	case LineOriented:
+		debugPrint(log.Printf, levelDebug, "Starting lines based stdin manager")
+		go gw.lineOrientedWrite(stdinPipe, &jisatsu)
+	default:
+		gw.updateState(TerminatedWithError)
+		return
 	}
 	go func() {
 		debugPrint(log.Printf, levelDebug, "stdout is starting!")
 		defer stdoutPipe.Close()
 		reader := bufio.NewReader(stdoutPipe)
 		for jisatsu {
-//			debugPrint(log.Printf, levelDebug, "stdout is reading!")
+			//			debugPrint(log.Printf, levelDebug, "stdout is reading!")
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
@@ -180,7 +184,7 @@ func (gw *ScriptGwData) ScriptGwExec() {
 		defer stderrPipe.Close()
 		reader := bufio.NewReader(stderrPipe)
 		for jisatsu {
-//			debugPrint(log.Printf, levelDebug, "stderr is reading!")
+			//			debugPrint(log.Printf, levelDebug, "stderr is reading!")
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
@@ -217,12 +221,12 @@ func (gw *ScriptGwData) updateState(newState ExecutionState) {
 }
 
 func ScriptGwInit(cmdFn string, ttype TermType, In <-chan byte, Out chan<- byte) *ScriptGwData {
-	return  &ScriptGwData{
-		state:        Undefined,
-		cmdFn:        cmdFn,
-		TType:        ttype,
-		In:           In,
-		Out:          Out,
+	return &ScriptGwData{
+		state: Undefined,
+		cmdFn: cmdFn,
+		TType: ttype,
+		In:    In,
+		Out:   Out,
 	}
 
 }

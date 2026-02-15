@@ -6,9 +6,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
-	"log"
 	"time"
 )
 
@@ -82,18 +82,18 @@ func (s *SerialIO) sendCommand(cmd string) {
 }
 
 const (
-	defaultDestPlain   = "/tmp/recv_pl.bin"
-	defaultDestGzip    = "/tmp/recv_gz.bin"
-	defaultDestXmodem  = "/tmp/recv_xm.bin"
+	defaultDestPlain  = "/tmp/recv_pl.bin"
+	defaultDestGzip   = "/tmp/recv_gz.bin"
+	defaultDestXmodem = "/tmp/recv_xm.bin"
 )
 
 const (
-	recvTempFile       = "/tmp/recv_tmp.b64"
-	chunkSize          = 128
-	targetBytesPerSec  = 3500
-	depsCheckTimeout   = 5 * time.Second
-	depsMarkerOK       = "SEND_DEPS_OK"
-	depsMarkerMissing  = "SEND_DEPS_MISSING"
+	recvTempFile      = "/tmp/recv_tmp.b64"
+	chunkSize         = 128
+	targetBytesPerSec = 3500
+	depsCheckTimeout  = 5 * time.Second
+	depsMarkerOK      = "SEND_DEPS_OK"
+	depsMarkerMissing = "SEND_DEPS_MISSING"
 )
 
 func remoteDepsCheckCmd() string {
@@ -165,7 +165,7 @@ func (s *SerialIO) sendChunkedBase64(encoded string) {
 		time.Sleep(delay)
 	}
 	s.writeString("\n")
-	s.writeByte(0x03) 
+	s.writeByte(0x03)
 }
 
 func SendFilePlain(io *SerialIO, localPath, destPath string) error {
@@ -175,7 +175,7 @@ func SendFilePlain(io *SerialIO, localPath, destPath string) error {
 	}
 	debugPrint(log.Printf, levelDebug, "sending '%s'\n", remoteRecvStart())
 	io.sendCommand(remoteRecvStart())
-	time.Sleep(500 * time.Millisecond) 
+	time.Sleep(500 * time.Millisecond)
 
 	data, err := os.ReadFile(localPath)
 	if err != nil {
@@ -245,7 +245,7 @@ func SendFileXmodemUnix(io *SerialIO, localPath, destPath string) error {
 	if destPath == "" {
 		destPath = defaultDestXmodem
 	}
-	io.drainIn(4096) 
+	io.drainIn(4096)
 	io.sendCommand("rx " + destPath)
 	return xmodemSend(io, localPath, 10*time.Second)
 }
@@ -348,7 +348,6 @@ func xmodemSend(io *SerialIO, localPath string, startTimeout time.Duration) erro
 	}
 	return errors.New("xmodem: no ACK for EOT")
 }
-
 
 func SendFile(io *SerialIO, localPath, mode, destPath string) error {
 	debugPrint(log.Printf, levelDebug, "SendFile %s %s %s\n", localPath, mode, destPath)

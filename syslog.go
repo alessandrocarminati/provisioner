@@ -4,7 +4,8 @@ import (
 	"gopkg.in/mcuadros/go-syslog.v2"
 	"log"
 	"os"
-	)
+)
+
 func syslog_service(fn string, port string) {
 	debugPrint(log.Printf, levelWarning, "Starting syslog service on port %s -> %s ", port, fn)
 	channel := make(syslog.LogPartsChannel)
@@ -13,7 +14,7 @@ func syslog_service(fn string, port string) {
 	server := syslog.NewServer()
 	server.SetFormat(syslog.Automatic)
 	server.SetHandler(handler)
-	server.ListenUDP("0.0.0.0:"+port)
+	server.ListenUDP("0.0.0.0:" + port)
 	server.Boot()
 
 	file, err := os.OpenFile(fn, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

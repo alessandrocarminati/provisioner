@@ -5,13 +5,13 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"os"
 	"io/ioutil"
+	"os"
 )
 
 const rsa_block_size = 117
 
-func GenerateKeyPair(PrivateFN string, PublicFN string) error{
+func GenerateKeyPair(PrivateFN string, PublicFN string) error {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return err
@@ -44,7 +44,7 @@ func GenerateKeyPair(PrivateFN string, PublicFN string) error{
 	return nil
 }
 
-func EncryptConfig(ConfigFN string, PubkeyFN string) ([]byte, error){
+func EncryptConfig(ConfigFN string, PubkeyFN string) ([]byte, error) {
 	publicKeyPEM, err := ioutil.ReadFile(PubkeyFN)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func EncryptConfig(ConfigFN string, PubkeyFN string) ([]byte, error){
 
 	return ciphertext, nil
 }
-func DecryptConfig(ConfigFN string, PivkeyFN string) ([]byte, error){
+func DecryptConfig(ConfigFN string, PivkeyFN string) ([]byte, error) {
 
 	privateKeyPEM, err := ioutil.ReadFile(PivkeyFN)
 	if err != nil {
@@ -113,7 +113,6 @@ func DecryptConfig(ConfigFN string, PivkeyFN string) ([]byte, error){
 			plaintext = append(plaintext, partial...)
 		}
 	}
-
 
 	return plaintext, nil
 }

@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
-	"log"
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
@@ -13,21 +13,23 @@ import (
 )
 
 type Reservation struct {
-	Start	time.Time
-	End	time.Time
-	Owner	[]string
-	RName	string
-	Id	string
+	Start time.Time
+	End   time.Time
+	Owner []string
+	RName string
+	Id    string
 }
 type Cmeet struct {
-	End	time.Time
-	Active	bool
+	End    time.Time
+	Active bool
 }
+
 var currentmeeting Cmeet
+
 //var Reservations []Reservation
 
 func NextReservation(credFN string, calendarN string, users []DefAuth) (*Reservation, error) {
-	var ids []string 
+	var ids []string
 
 	ctx := context.Background()
 	b, err := os.ReadFile(credFN)
@@ -66,11 +68,11 @@ func NextReservation(credFN string, calendarN string, users []DefAuth) (*Reserva
 				return nil, fmt.Errorf("invalid date")
 			}
 			tmp := &Reservation{
-				Start:	start,
-				End:	end,
-				Owner:	ids,
-				RName:  item.Summary,
-				Id:	item.Id,
+				Start: start,
+				End:   end,
+				Owner: ids,
+				RName: item.Summary,
+				Id:    item.Id,
 			}
 
 			return tmp, nil
@@ -82,9 +84,9 @@ func NextReservation(credFN string, calendarN string, users []DefAuth) (*Reserva
 func GetOwners(item calendar.Event, users []DefAuth) ([]string, error) {
 	var res []string
 
-	for _, v := range item.Attendees{
+	for _, v := range item.Attendees {
 		if valid(v.Email, users) {
-			res=append(res,v.Email)
+			res = append(res, v.Email)
 		}
 	}
 	if len(res) == 0 {
@@ -101,8 +103,8 @@ func valid(s string, users []DefAuth) bool {
 	return false
 }
 
-func checkCalendar(credFn string){
-	debugPrint(log.Printf, levelNotice, "checking calendar" )
+func checkCalendar(credFn string) {
+	debugPrint(log.Printf, levelNotice, "checking calendar")
 	next, err := NextReservation(credFn, "primary", GenAuth)
 	if err == nil {
 		debugPrint(log.Printf, levelNotice, "checkCalendar: desc: %s", next.RName)
@@ -110,34 +112,34 @@ func checkCalendar(credFn string){
 		if currentmeeting.Active && (time.Now().After(currentmeeting.End)) {
 			for i, item := range GenAuth {
 				if item.service == "tunnel" {
-					 GenAuth[i].state = false
+					GenAuth[i].state = false
 				}
 			}
 		}
 		if time.Now().After(next.Start) {
-			currentmeeting.Active=true
-			currentmeeting.End=next.End
+			currentmeeting.Active = true
+			currentmeeting.End = next.End
 			for i, item := range GenAuth {
 				if item.service == "tunnel" {
 					for _, o := range next.Owner {
-	                		        if item.name == o {
+						if item.name == o {
 							GenAuth[i].state = true
 						}
 					}
-	        	        }
-		        }
+				}
+			}
 		}
 	} else {
 		debugPrint(log.Printf, levelNotice, "next event: none")
 	}
 }
-func calendarPoller(credFn string){
+func calendarPoller(credFn string) {
 	ticker := time.Tick(1 * time.Minute)
 
 	for {
 		select {
-			case <-ticker:
-				checkCalendar(credFn)
+		case <-ticker:
+			checkCalendar(credFn)
 		}
 	}
 }

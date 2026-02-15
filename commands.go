@@ -14,128 +14,126 @@ import (
 type CommandFunction func(string) string
 type FenceFuncs func(string) error
 
-
 type Command struct {
-        Name        string
-        HelpText    string
-        Handler     CommandFunction
+	Name     string
+	HelpText string
+	Handler  CommandFunction
 }
 
 type CmdCtx struct {
-	monitor        *MonCtx
-	commands       map[string] Command
-	fences         map[string] FenceFuncs
-	gwScr          []*ScriptGwData
+	monitor  *MonCtx
+	commands map[string]Command
+	fences   map[string]FenceFuncs
+	gwScr    []*ScriptGwData
 }
 
 var log_serial_in_progress bool
 
-
-func command_init(monitor *MonCtx, maxFences, maxScrSess int) (*CmdCtx) {
+func command_init(monitor *MonCtx, maxFences, maxScrSess int) *CmdCtx {
 
 	debugPrint(log.Printf, levelInfo, "Initialyzing monitor commands struct")
 	fences := make(map[string]FenceFuncs, maxFences)
 	gws := make([]*ScriptGwData, maxScrSess)
 	commands := make(map[string]Command, 20)
 	c := &CmdCtx{
-                monitor:   monitor,
-                commands:  commands,
-                fences:    fences,
-		gwScr:     gws,
-        }
+		monitor:  monitor,
+		commands: commands,
+		fences:   fences,
+		gwScr:    gws,
+	}
 
-	c.commands["echo"]=Command{
-		Name: "echo",
+	c.commands["echo"] = Command{
+		Name:     "echo",
 		HelpText: "echoes back the argument",
-		Handler: c.echoCmd,
+		Handler:  c.echoCmd,
 	}
-	c.commands["help"]=Command{
-		Name: "help",
+	c.commands["help"] = Command{
+		Name:     "help",
 		HelpText: "this text",
-		Handler: c.help,
+		Handler:  c.help,
 	}
-	c.commands["?"]=Command{
-		Name: "?",
+	c.commands["?"] = Command{
+		Name:     "?",
 		HelpText: "this text",
-		Handler: c.help,
+		Handler:  c.help,
 	}
-	c.commands["ton"]=Command{
-		Name: "ton",
+	c.commands["ton"] = Command{
+		Name:     "ton",
 		HelpText: "command PDU using snmp to turn on the board",
-		Handler: c.ton,
+		Handler:  c.ton,
 	}
-	c.commands["toff"]=Command{
-		Name: "toff",
+	c.commands["toff"] = Command{
+		Name:     "toff",
 		HelpText: "command PDU using snmp to turn off the board",
-		Handler: c.toff,
+		Handler:  c.toff,
 	}
-	c.commands["ulist"]=Command{
-		Name: "ulist",
+	c.commands["ulist"] = Command{
+		Name:     "ulist",
 		HelpText: "list user state for tunnel",
-		Handler: c.listUser,
+		Handler:  c.listUser,
 	}
-	c.commands["enuser"]=Command{
-		Name: "enuser",
+	c.commands["enuser"] = Command{
+		Name:     "enuser",
 		HelpText: "enable user for tunnel",
-		Handler: c.enuser,
+		Handler:  c.enuser,
 	}
-	c.commands["exit"]=Command{
-		Name: "exit",
+	c.commands["exit"] = Command{
+		Name:     "exit",
 		HelpText: "exit this shell",
-		Handler: c.exit,
+		Handler:  c.exit,
 	}
-	c.commands["tterm"]=Command{
-		Name: "tterm",
+	c.commands["tterm"] = Command{
+		Name:     "tterm",
 		HelpText: "terminate serial tunnel connection",
-		Handler: c.tterm,
+		Handler:  c.tterm,
 	}
-	c.commands["exec_assm"]=Command{
-		Name: "exec_assm",
+	c.commands["exec_assm"] = Command{
+		Name:     "exec_assm",
 		HelpText: "Load and executes the specified assm script",
-		Handler: c.exec_assm,
+		Handler:  c.exec_assm,
 	}
-	c.commands["exec_scr"]=Command{
-		Name: "exec_scr",
+	c.commands["exec_scr"] = Command{
+		Name:     "exec_scr",
 		HelpText: "Load and executes the specified script",
-		Handler: c.exec_scr,
+		Handler:  c.exec_scr,
 	}
 
-	c.commands["exec_state"]=Command{
-		Name: "exec_state",
+	c.commands["exec_state"] = Command{
+		Name:     "exec_state",
 		HelpText: "returns the state of the specified script",
-		Handler: c.exec_state,
+		Handler:  c.exec_state,
 	}
 
-	c.commands["log_serial"]=Command{
-		Name: "log_serial",
+	c.commands["log_serial"] = Command{
+		Name:     "log_serial",
 		HelpText: "copies in a file ser.log all sent and received from the serial. Note: overwrites previous.",
-		Handler: c.log_serial,
+		Handler:  c.log_serial,
 	}
 
-	c.commands["log_serial_stop"]=Command{
-		Name: "log_serial_stop",
+	c.commands["log_serial_stop"] = Command{
+		Name:     "log_serial_stop",
 		HelpText: "Requires serila log subsystem to stop.",
-		Handler: c.log_serial_stop,
+		Handler:  c.log_serial_stop,
 	}
-	c.commands["send_serial"]=Command{
-		Name: "send_serial",
+	c.commands["send_serial"] = Command{
+		Name:     "send_serial",
 		HelpText: "send file over serial: send_serial <file> <plain|gzip|xmodem_unix|xmodem_uboot> [dest_path]",
-		Handler: c.send_serial,
+		Handler:  c.send_serial,
 	}
-	c.commands["board_stat"]=Command{
-		Name: "board_stat",
+	c.commands["board_stat"] = Command{
+		Name:     "board_stat",
 		HelpText: "report last goinit board stat; board must have printed PROVISIONER_MGMT_*",
-		Handler: c.board_stat,
+		Handler:  c.board_stat,
 	}
-	c.commands["ansi"]=Command{
-		Name: "ansi",
-		HelpText: "ANSI DSR/DA filter: ansi [on|off] inject reply to board, drop client's late reply. Default on.",
-		Handler: c.ansiFilter,
+	c.commands["filter"] = Command{
+		Name:     "Filter",
+		HelpText: "Enable router level filter",
+		Handler:  c.Filter,
 	}
-	c.commands["send_serial_deps"]=Command{
-		Name: "send_serial_deps",
+	c.commands["send_serial_deps"] = Command{
+		Name:     "send_serial_deps",
 		HelpText: "check remote deps for send_serial plain/gzip: stty, dd, base64, gzip, rm (or busybox).",
-		Handler: c.send_serial_deps,
+		Handler:  c.send_serial_deps,
 	}
 
 	return c
@@ -150,7 +148,7 @@ func (c *CmdCtx) exec_state(input string) string {
 	if c.gwScr[pos] == nil {
 		return fmt.Sprintf("The position %d is not available:\r\n", pos)
 	}
-	return fmt.Sprintf("Script %d is in %s state\r\n", pos, c.gwScr[pos].GetState() )
+	return fmt.Sprintf("Script %d is in %s state\r\n", pos, c.gwScr[pos].GetState())
 }
 
 func (c *CmdCtx) exec_scr(input string) string {
@@ -158,15 +156,15 @@ func (c *CmdCtx) exec_scr(input string) string {
 
 	args := strings.Split(input, " ")
 
-	if len(args)!=3 {
+	if len(args) != 3 {
 		return fmt.Sprintf("exec_src <script_path> <term_type> <slot>\r\n")
 	}
-	ttype:=UndefinedTerm
+	ttype := UndefinedTerm
 	switch args[1] {
 	case "line":
-		ttype=LineOriented
+		ttype = LineOriented
 	case "char":
-		ttype=CharOriented
+		ttype = CharOriented
 	default:
 		return fmt.Sprintf("Unknown terminal type: %s\r\n", args[1])
 	}
@@ -187,7 +185,7 @@ func (c *CmdCtx) exec_scr(input string) string {
 
 	c.gwScr[pos] = ScriptGwInit(args[0], ttype, (*(*c).monitor).router.In[n], (*(*c).monitor).router.Out[n])
 
-	go func(c *CmdCtx, pos int){
+	go func(c *CmdCtx, pos int) {
 		defer (*(*c).monitor).router.DetachAt(n)
 		c.gwScr[pos].ScriptGwExec()
 		debugPrint(log.Printf, levelWarning, "execution terminated: %d", c.gwScr[pos].state)
@@ -205,12 +203,12 @@ func (c *CmdCtx) exec_assm(input string) string {
 	if !strings.HasSuffix(input, ".assm") {
 		return "unknown script type\r\n"
 	}
-	ex, err := einit(input,  (*(*c).monitor).router.In[n], (*(*c).monitor).router.Out[n])
+	ex, err := einit(input, (*(*c).monitor).router.In[n], (*(*c).monitor).router.Out[n])
 	if err != nil {
 		(*(*c).monitor).router.DetachAt(n)
 		return fmt.Sprintf("Syntax error: %s\r\n", err.Error())
 	}
-	go func(c *CmdCtx){
+	go func(c *CmdCtx) {
 		defer (*(*c).monitor).router.DetachAt(n)
 		err = ex.Execute(500)
 		if err != nil {
@@ -222,17 +220,16 @@ func (c *CmdCtx) exec_assm(input string) string {
 	return "script is processing text from serial\r\n"
 }
 
-
 func (c *CmdCtx) exit(input string) string {
 
 	debugPrint(log.Printf, levelInfo, "exit command requested")
 
-	ret :=""
+	ret := ""
 	if len(input) == 0 {
 		ret = "Available sessions:\r\n"
-		for i, item  := range sshChannelsMonitor {
+		for i, item := range sshChannelsMonitor {
 			if item != nil {
-				ret = ret +fmt.Sprintf(" %d", i)
+				ret = ret + fmt.Sprintf(" %d", i)
 			}
 		}
 		return ret + "\r\n"
@@ -253,12 +250,12 @@ func (c *CmdCtx) exit(input string) string {
 func (c *CmdCtx) tterm(input string) string {
 	debugPrint(log.Printf, levelInfo, "tterm command requested")
 
-	ret :=""
+	ret := ""
 	if len(input) == 0 {
 		ret = "Available sessions:\r\n"
-		for i, item  := range sshChannelsSerial {
+		for i, item := range sshChannelsSerial {
 			if item != nil {
-				ret = ret +fmt.Sprintf(" %d", i)
+				ret = ret + fmt.Sprintf(" %d", i)
 			}
 		}
 		return ret + "\r\n"
@@ -271,7 +268,7 @@ func (c *CmdCtx) tterm(input string) string {
 	chn := sshChannelsSerial[n]
 	if chn != nil {
 		(*chn).Close()
-		sshChannelsSerial[n]=nil
+		sshChannelsSerial[n] = nil
 		return "\r\n"
 	}
 	return ret
@@ -282,32 +279,32 @@ func (c *CmdCtx) listUser(input string) string {
 	debugPrint(log.Printf, levelInfo, "listUser command requested")
 	for _, item := range GenAuth {
 		if item.service == "tunnel" {
-			out = out + fmt.Sprintf("  %-40s %t\n\r", item.name + " ->", item.state)
+			out = out + fmt.Sprintf("  %-40s %t\n\r", item.name+" ->", item.state)
 		}
 	}
 	return out
 }
 
 func (c *CmdCtx) enuser(input string) string {
-	out:="user not found!"
+	out := "user not found!"
 	debugPrint(log.Printf, levelInfo, "enuser command requested")
 	if len(input) == 0 {
 		out = "Error: enuser <user>\n\rHint: user corresponds to the ssh pubkey comment."
 	} else {
 		for i, item := range GenAuth {
 			if item.service == "tunnel" {
-                	        if item.name == input {
+				if item.name == input {
 					GenAuth[i].state = true
-					out="state updated"
+					out = "state updated"
 				}
-        	        }
-	        }
+			}
+		}
 	}
-        return out + "\r\n"
+	return out + "\r\n"
 }
 
-func (c *CmdCtx) help(input string) string{
-	out:=""
+func (c *CmdCtx) help(input string) string {
+	out := ""
 	debugPrint(log.Printf, levelInfo, "help command requested")
 	list := make([]string, 0, len(c.commands))
 
@@ -322,20 +319,19 @@ func (c *CmdCtx) help(input string) string{
 	return out
 }
 
-func (c *CmdCtx) dummyCmd(input string) string{
+func (c *CmdCtx) dummyCmd(input string) string {
 	debugPrint(log.Printf, levelInfo, "dummy command requested")
-	return "Not Implemented Yet :("+ "\r\n"
+	return "Not Implemented Yet :(" + "\r\n"
 }
 
-
-func (c *CmdCtx) FenceSwitch(state string) string{
+func (c *CmdCtx) FenceSwitch(state string) string {
 	var res string
 
 	pdu_type, ok := (*(*c).monitor).monitorConfig["pdu_type"]
 	if ok {
 		err := c.fences[pdu_type](state)
 		if err != nil {
-			res=err.Error()
+			res = err.Error()
 			return res
 		}
 		return "Command sent! It may take up to 10 seconds.\r\n"
@@ -343,18 +339,17 @@ func (c *CmdCtx) FenceSwitch(state string) string{
 	return "unknown PDU type\r\n"
 }
 
-
-func (c *CmdCtx) ton(input string) string{
+func (c *CmdCtx) ton(input string) string {
 	debugPrint(log.Printf, levelInfo, "ton command requested")
 	return c.FenceSwitch("ON")
 }
 
-func (c *CmdCtx) toff(input string) string{
+func (c *CmdCtx) toff(input string) string {
 	debugPrint(log.Printf, levelInfo, "toff command requested")
 	return c.FenceSwitch("OFF")
 }
 
-func (c *CmdCtx) echoCmd(input string) string{
+func (c *CmdCtx) echoCmd(input string) string {
 
 	debugPrint(log.Printf, levelInfo, "echo command requested")
 	log.Printf("echoCmd arg'%s'\n", input)
@@ -363,8 +358,8 @@ func (c *CmdCtx) echoCmd(input string) string{
 	}
 	return input + "\r\n"
 }
-func (c *CmdCtx) log_serial_stop(input string) string{
-	log_serial_in_progress=false
+func (c *CmdCtx) log_serial_stop(input string) string {
+	log_serial_in_progress = false
 	return fmt.Sprintf("Sent request to stop logging.\r\n")
 }
 
@@ -449,49 +444,49 @@ func (c *CmdCtx) send_serial_deps(input string) string {
 	}
 }
 
-func (c *CmdCtx) ansiFilter(input string) string {
+func (c *CmdCtx) Filter(input string) string {
 	router := (*(*c).monitor).router
 	arg := strings.TrimSpace(strings.ToLower(input))
 	switch arg {
 	case "on":
-		router.SetANSIFilter(true)
-		return "ansi filter on\r\n"
+		router.SetFilter(true)
+		return "filter on\r\n"
 	case "off":
-		router.SetANSIFilter(false)
-		return "ansi filter off\r\n"
+		router.SetFilter(false)
+		return "filter off\r\n"
 	default:
-		if router.ANSIFilterEnabled() {
-			return "ansi filter on\r\n"
+		if router.FilterEnabled() {
+			return "filter on\r\n"
 		}
-		return "ansi filter off\r\n"
+		return "filter off\r\n"
 	}
 }
 
-func (c *CmdCtx) log_serial(input string) string{
+func (c *CmdCtx) log_serial(input string) string {
 
 	if log_serial_in_progress {
 		return fmt.Sprintf("Already in progress\r\n")
 	}
-	if (input == "") {
+	if input == "" {
 		return fmt.Sprintf("no input file given\r\n")
 	}
 	items := strings.Split(input, " ")
-	if (len(items)!=1) {
+	if len(items) != 1 {
 		return fmt.Sprintf("Syntax error. Command has only an argument. it is the log file name.\r\n")
 	}
 	debugPrint(log.Printf, levelInfo, "log_serial command requested")
 	n, err := (*(*c).monitor).router.GetFreePos()
 	if err != nil {
-		 return fmt.Sprintf("no available channels: %s\r\n", err.Error())
+		return fmt.Sprintf("no available channels: %s\r\n", err.Error())
 	}
 	(*(*c).monitor).router.AttachAt(n, SrcHuman)
-	log_serial_in_progress=true
-	go func(c *CmdCtx){
+	log_serial_in_progress = true
+	go func(c *CmdCtx) {
 		var buffer []byte
 		(*(*c).monitor).router.DetachAt(n) // n is consistent, golang lifetime maintains it after parent terminates.
 
 		f, err := os.Create(input)
-		if err!=nil {
+		if err != nil {
 			debugPrint(log.Printf, levelError, "Can't create file %s: %s", input, err.Error())
 		}
 		defer f.Close()
@@ -499,7 +494,7 @@ func (c *CmdCtx) log_serial(input string) string{
 		debugPrint(log.Printf, levelInfo, "Goroutine started")
 		inStrChan := (*(*c).monitor).router.In[n]
 
-		go func(){
+		go func() {
 			for log_serial_in_progress {
 				if len(buffer) > 0 {
 					debugPrint(log.Printf, levelDebug, "Writing buffer in the file '%s'", buffer)
@@ -528,5 +523,5 @@ func (c *CmdCtx) log_serial(input string) string{
 			}
 		}
 	}(c)
-        return fmt.Sprintf("Logging on '%s'\r\n", input)
+	return fmt.Sprintf("Logging on '%s'\r\n", input)
 }
