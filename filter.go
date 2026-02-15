@@ -11,11 +11,11 @@ var (
 	DeviceSpecsQ             = Sequence("\x1b[c")
 	PrimaryDeviceAttributesQ = Sequence("\x1b[0c")
 //	TestQ                    = Sequence("Bella")
-	CursorPositionF          = Sequence("\x1b[6n")
-	DeviceSpecsF             = Sequence("\x1b[c")
-	PrimaryDeviceAttributesF = Sequence("\x1b[0c")
+	CursorPositionF          = Sequence("") // The intent here is to prevent client to answer late, because latency introduced by the tunnel
+	DeviceSpecsF             = Sequence("")
+	PrimaryDeviceAttributesF = Sequence("")
 //	TestF                    = Sequence("bella")
-	CursorPositionA          = Sequence("\x1b[?25;80R")
+	CursorPositionA          = Sequence("\x1b[?25;80R") // provisional answer, 80x25
 	DeviceSpecsA             = Sequence("\x1b[?64;1;2;4;6;15;22c")
 	PrimaryDeviceAttributesA = Sequence("\x1b[?1;2c")
 //	TestA                    = Sequence("Dylan")

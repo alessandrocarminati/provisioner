@@ -488,8 +488,9 @@ func (c *CmdCtx) Filter(input string) string {
 			fmt.Sprintf("  %-20s %s\n\r", "disable :", "Disables filters - Example: filter disable")+
 			fmt.Sprintf("  %-20s %s\n\r", "default :", "Restores filters default rules - Example: filter default")+
 			fmt.Sprintf("  %-20s %s\n\r", "show :",    "Shows current filter state and rules - Example: filter show")+
-			fmt.Sprintf("  %-20s %s\n\r", "add :",     "adds rules to filters")+
+			fmt.Sprintf("  %-20s %s\n\r", "add :",     "adds rules to filters - Example: filter add <ascii|hex> <rcv> <fwd|-> <ans|->")+
 			fmt.Sprintf("  %-20s %s\n\r", " Example >"," filter add hex 48656c6c6f 48656c6c6f 576f726c64")+
+			fmt.Sprintf("  %-20s %s\n\r", " Example >"," filter add ascii Hello Hello World")+
 			fmt.Sprintf("  %-20s %s\n\r", " Example >"," filter add ascii Hello Hello World")+
 			fmt.Sprintf("  %-20s %s\n\r", "remove :",  "removes rules to filters - Example: filter remove 5")+
 			fmt.Sprintf("  %-20s %s\n\r", "help :",    "this message")
